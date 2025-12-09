@@ -1,4 +1,6 @@
 
+pub mod pacman;
+
 pub struct ManagerStats {
     pub total_installed: u32,
     pub total_upgradable: u32,
