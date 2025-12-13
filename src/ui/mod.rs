@@ -17,6 +17,10 @@ pub fn draw_ui() {
                 println!("Total Download Size: {:.2} MiB", download);
             }
 
+            if let Some(installed) = stats.total_installed_size_mb {
+                println!("Total Installed Size: {:.2} MiB", installed);
+            }
+
             if let Some(net_upgrade) = stats.net_upgrade_size_mb {
                 println!("Net Upgrade Size: {:.2} MiB", net_upgrade);
             }

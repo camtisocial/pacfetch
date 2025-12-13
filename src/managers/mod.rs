@@ -6,6 +6,7 @@ pub struct ManagerStats {
     pub days_since_last_update: Option<i64>,
     pub mirror_health: Option<String>,
     pub download_size_mb: Option<f64>,
+    pub total_installed_size_mb: Option<f64>,
     pub net_upgrade_size_mb: Option<f64>,
 }
 
