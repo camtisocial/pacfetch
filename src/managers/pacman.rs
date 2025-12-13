@@ -114,19 +114,19 @@ impl FetchPacmanStats {
 
     fn get_upgrade_sizes(&self) -> (Option<f64>, Option<f64>, Option<f64>) {
 
-        // ########## creating alpm connection, getting sync db and local db #########
+        // ########## Creating alpm connection, getting sync db and local db #########
 
         let mut alpm = match Alpm::new("/", "/var/lib/pacman") {
             Ok(a) => a,
             Err(_) => return (None, None, None),
         };
 
-        // register sync databases
+        // Register sync databases
         let _ = alpm.register_syncdb_mut("core", alpm::SigLevel::NONE);
         let _ = alpm.register_syncdb_mut("extra", alpm::SigLevel::NONE);
         let _ = alpm.register_syncdb_mut("multilib", alpm::SigLevel::NONE);
 
-        // set NO_LOCK, avoids needing sudo,
+        // Set NO_LOCK, avoids needing root
         if alpm.trans_init(alpm::TransFlag::NO_LOCK).is_err() {
             return (None, None, None);
         }
@@ -171,7 +171,7 @@ impl FetchPacmanStats {
         }
 
 
-        // ############ cleaning up handles/transaction and data ##########
+        // ############ Cleaning up handles/transaction and data ##########
 
         // Handle removals
         for pkg in alpm.trans_remove().into_iter() {
@@ -195,6 +195,49 @@ impl FetchPacmanStats {
     }
 
 
+    fn get_orphaned_packages(&self) -> (Option<u32>, Option<f64>) {
+        let alpm = match Alpm::new("/", "/var/lib/pacman") {
+            Ok(a) => a,
+            Err(_) => return (None, None),
+        };
+
+        let localdb = alpm.localdb();
+        let mut count = 0;
+        let mut total_size: i64 = 0;
+
+        // Find packages installed as dependencies that nothing depends on
+        for pkg in localdb.pkgs().into_iter() {
+            // Check if installed as a dependency (not explicitly installed)
+            if pkg.reason() == alpm::PackageReason::Depend {
+                // Check if anything requires this package
+                if pkg.required_by().len() == 0 && pkg.optional_for().len() == 0 {
+                    count += 1;
+                    total_size += pkg.isize();
+                }
+            }
+        }
+
+        let size_mb = total_size as f64 / 1048576.0;
+        (Some(count), Some(size_mb))
+    }
+
+    fn get_cache_size(&self) -> Option<f64> {
+        let cache_path = std::path::Path::new("/var/cache/pacman/pkg");
+
+        if let Ok(entries) = std::fs::read_dir(cache_path) {
+            let total_size: u64 = entries
+                .filter_map(|e| e.ok())
+                .filter_map(|e| e.metadata().ok())
+                .filter(|m| m.is_file())
+                .map(|m| m.len())
+                .sum();
+
+            Some(total_size as f64 / 1048576.0)
+        } else {
+            None
+        }
+    }
+
     fn get_mirror_health(&self) -> Option<String> {
         Some("test".to_string())
     }
@@ -203,6 +246,7 @@ impl FetchPacmanStats {
 impl PackageManager for FetchPacmanStats {
     fn get_stats(&self) -> ManagerStats {
         let (download_size, total_installed_size, net_upgrade_size) = self.get_upgrade_sizes();
+        let (orphaned_count, orphaned_size) = self.get_orphaned_packages();
 
         ManagerStats {
             total_installed: self.get_installed_count(),
@@ -212,6 +256,9 @@ impl PackageManager for FetchPacmanStats {
             download_size_mb: download_size,
             total_installed_size_mb: total_installed_size,
             net_upgrade_size_mb: net_upgrade_size,
+            orphaned_packages: orphaned_count,
+            orphaned_size_mb: orphaned_size,
+            cache_size_mb: self.get_cache_size(),
         }
     }
 }

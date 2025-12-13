@@ -8,6 +8,9 @@ pub struct ManagerStats {
     pub download_size_mb: Option<f64>,
     pub total_installed_size_mb: Option<f64>,
     pub net_upgrade_size_mb: Option<f64>,
+    pub orphaned_packages: Option<u32>,
+    pub orphaned_size_mb: Option<f64>,
+    pub cache_size_mb: Option<f64>,
 }
 
 pub trait PackageManager {

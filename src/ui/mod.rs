@@ -25,6 +25,25 @@ pub fn draw_ui() {
                 println!("Net Upgrade Size: {:.2} MiB", net_upgrade);
             }
 
+
+
+            // Maintenance section
+            if let Some(orphaned) = stats.orphaned_packages {
+                if orphaned > 0 {
+                    if let Some(size) = stats.orphaned_size_mb {
+                        println!("Orphaned Packages: {} ({:.2} MiB reclaimable)", orphaned, size);
+                    } else {
+                        println!("Orphaned Packages: {}", orphaned);
+                    }
+                }
+            }
+
+            if let Some(cache_size) = stats.cache_size_mb {
+                println!("Package Cache: {:.2} MiB", cache_size);
+                if cache_size > 1000.0 {
+                }
+            }
+
             if let Some(mirror) = stats.mirror_health {
                 println!("Mirror Health: {}", mirror);
             }
