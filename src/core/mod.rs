@@ -1,8 +1,15 @@
-use crate::managers::{ManagerStats, PackageManager, pacman::FetchPacmanStats};
+use crate::managers::{ManagerStats, MirrorHealth, PackageManager, pacman::FetchPacmanStats};
 
+// local queries only
 pub fn get_manager_stats() -> ManagerStats {
     let backend = FetchPacmanStats;
     backend.get_stats()
+}
+
+// network requests, much slower, will be run asynchronously
+pub fn test_mirror_health() -> Option<MirrorHealth> {
+    let backend = FetchPacmanStats;
+    backend.test_mirror_health()
 }
 
 /// Convert seconds since last update to a human-readable string

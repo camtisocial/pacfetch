@@ -1,4 +1,4 @@
-use crate::managers::{ManagerStats, PackageManager};
+use crate::managers::{ManagerStats, MirrorHealth, PackageManager};
 use alpm::Alpm;
 use chrono::{DateTime, FixedOffset, Local};
 use std::fs;
@@ -238,9 +238,6 @@ impl FetchPacmanStats {
         }
     }
 
-    fn get_mirror_health(&self) -> Option<String> {
-        Some("test".to_string())
-    }
 }
 
 impl PackageManager for FetchPacmanStats {
@@ -252,7 +249,6 @@ impl PackageManager for FetchPacmanStats {
             total_installed: self.get_installed_count(),
             total_upgradable: self.get_upgradable_count(),
             days_since_last_update: self.get_seconds_since_update(),
-            mirror_health: self.get_mirror_health(),
             download_size_mb: download_size,
             total_installed_size_mb: total_installed_size,
             net_upgrade_size_mb: net_upgrade_size,
@@ -260,5 +256,18 @@ impl PackageManager for FetchPacmanStats {
             orphaned_size_mb: orphaned_size,
             cache_size_mb: self.get_cache_size(),
         }
+    }
+
+    fn test_mirror_health(&self) -> Option<MirrorHealth> {
+        // test 
+        println!("[Mirror test: sleeping ...zzz]");
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        println!("[Mirror test: Complete]");
+
+        Some(MirrorHealth {
+            url: "mirror.example.com".to_string(),
+            speed_mbps: Some(15.2),
+            sync_age_hours: Some(2.5),
+        })
     }
 }
