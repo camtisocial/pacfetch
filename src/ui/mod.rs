@@ -1,8 +1,10 @@
 use crate::core;
-use crate::managers::{ManagerStats, MirrorHealth};
-use indicatif::{ProgressBar, ProgressStyle};
-use std::{io, thread, time::Duration};
-use termimad::crossterm::style::Color::*;
+use crate::managers::ManagerStats;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::io;
+use std::sync::mpsc::Receiver;
+use std::time::Duration;
+use termimad::crossterm::style::{Color::*, Stylize};
 use termimad::{MadSkin, rgb};
 
 pub fn display_stats(stats: &ManagerStats) {
@@ -49,7 +51,11 @@ pub fn display_stats(stats: &ManagerStats) {
     }
 }
 
-pub fn display_mirror_health(mirror: &Option<MirrorHealth>, stats: &ManagerStats) {
+// For plain mode - uses MirrorHealth from backward compat test_mirror_health()
+pub fn display_mirror_health(
+    mirror: &Option<crate::managers::MirrorHealth>,
+    stats: &ManagerStats,
+) {
     if let Some(m) = mirror {
         println!("----- Mirror Health -----");
         println!("Mirror: {}", m.url);
@@ -82,7 +88,12 @@ pub fn display_mirror_health(mirror: &Option<MirrorHealth>, stats: &ManagerStats
     }
 }
 
-pub fn display_stats_with_graphics( stats: &ManagerStats, _mirror: &Option<MirrorHealth>,) -> io::Result<()> {
+pub fn display_stats_with_graphics(
+    stats: &ManagerStats,
+    progress_rx: Receiver<u64>,
+    speed_rx: Receiver<Option<f64>>,
+) -> io::Result<()> {
+
     let mut skin = MadSkin::default();
     skin.set_headers_fg(rgb(255, 187, 0));
     skin.bold.set_fg(Yellow);
@@ -124,10 +135,23 @@ pub fn display_stats_with_graphics( stats: &ManagerStats, _mirror: &Option<Mirro
         .map(|s| format!("{:.2} MiB", s))
         .unwrap_or_else(|| "-".to_string());
 
-    // Print non network stats once
+    // display mirror info
+    let mirror_url = stats
+        .mirror_url
+        .as_ref()
+        .map(|s| s.as_str())
+        .unwrap_or("Unknown");
+
+    let sync_age = if let Some(age) = stats.mirror_sync_age_hours {
+        format!("{:.1} hours ago", age)
+    } else {
+        "-".to_string()
+    };
+
+    // Print all fast stats 
     let content = format!(
         r#"
-
+----
 **{:<20}** {}
 **{:<20}** {}
 **{:<20}** {}
@@ -136,7 +160,8 @@ pub fn display_stats_with_graphics( stats: &ManagerStats, _mirror: &Option<Mirro
 **{:<20}** {}
 **{:<20}** {}
 **{:<20}** {}
-"#,
+**{:<20}** {}
+**{:<20}** {}"#,
         "Installed:",
         stats.total_installed,
         "Upgradable:",
@@ -152,14 +177,39 @@ pub fn display_stats_with_graphics( stats: &ManagerStats, _mirror: &Option<Mirro
         "Orphaned Packages:",
         orphaned,
         "Package Cache:",
-        cache
+        cache,
+        "Mirror URL:",
+        mirror_url,
+        "Mirror Last Sync:",
+        sync_age,
     );
 
     let width = 80;
-    println!("{}", skin.text(&content, Some(width)));
+    print!("{}", skin.text(&content, Some(width)));
 
-    // progress bar with spinner
-    let pb = ProgressBar::new(100);
+    let mp = MultiProgress::new();
+
+    // using progress bars to update text in place 
+    let speed_bar = mp.add(ProgressBar::new(1));
+    let speed_label = "Mirror Speed:".bold().with(Yellow).to_string();
+    speed_bar.set_style(
+        ProgressStyle::default_bar()
+            .template(&format!("{}        {{msg}}", speed_label))
+            .expect("Failed to create speed template"),
+    );
+    speed_bar.set_message("-");
+
+    let eta_bar = mp.add(ProgressBar::new(1));
+    let eta_label = "Download ETA:      ".bold().with(Yellow).to_string();
+    eta_bar.set_style(
+        ProgressStyle::default_bar()
+            .template(&format!("{}  {{msg}}", eta_label))
+            .expect("Failed to create ETA template"),
+    );
+    eta_bar.set_message("-");
+
+    // Create the actual progress bar
+    let pb = mp.add(ProgressBar::new(100));
     pb.set_style(
         ProgressStyle::default_bar()
             .template("{spinner:.cyan} {msg} {bar:20.cyan/blue} {pos}%")
@@ -167,27 +217,63 @@ pub fn display_stats_with_graphics( stats: &ManagerStats, _mirror: &Option<Mirro
             .progress_chars("━━╸")
             .tick_strings(&["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"]),
     );
+    pb.set_message("Testing speed");
 
-    // tester progress info
-    let start_time = std::time::Instant::now();
+    // Update progress bar based on real progress from background thread
     loop {
-        let progress = std::cmp::min((start_time.elapsed().as_secs() * 20) as u64, 100);
+        match progress_rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(progress) => {
+                pb.set_position(progress);
 
-        if progress >= 100 {
-            pb.set_style(
-                ProgressStyle::default_bar()
-                    .template("{msg} {bar:20.cyan/blue} {pos}%")
-                    .expect("Failed to create final template")
-                    .progress_chars("━━━━━━━━━━━━━━━━━━━━"),
-            );
-            pb.finish_with_message("✓ Done");
-            break;
-        } else {
-            pb.set_message("Downloading");
-            pb.set_position(progress);
+                if progress >= 100 {
+                    break;
+                }
+            }
+            Err(_) => {
+                pb.tick();
+            }
         }
+    }
 
-        thread::sleep(Duration::from_millis(100));
+    // update values
+    if let Ok(Some(speed)) = speed_rx.recv() {
+        // estimate download time
+        let eta_display = if let Some(size) = stats.download_size_mb {
+            if size > 0.0 {
+                let eta_seconds = size / speed;
+                if eta_seconds < 60.0 {
+                    format!("{:.0}s", eta_seconds)
+                } else if eta_seconds < 3600.0 {
+                    format!("{:.0}m {:.0}s", eta_seconds / 60.0, eta_seconds % 60.0)
+                } else {
+                    format!(
+                        "{:.0}h {:.0}m",
+                        eta_seconds / 3600.0,
+                        (eta_seconds % 3600.0) / 60.0
+                    )
+                }
+            } else {
+                "-".to_string()
+            }
+        } else {
+            "-".to_string()
+        };
+
+        // Update speed and ETA bars with actual values
+        speed_bar.set_message(format!("{:.1} MB/s", speed));
+        speed_bar.finish();
+
+        eta_bar.set_message(eta_display);
+        eta_bar.finish();
+
+        // reprint to get rid of spinner, probalby remove this later
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{bar:20.cyan/blue} {pos}%")
+                .expect("Failed to create final template")
+                .progress_chars("━━━━━━━━━━━━━━━━━━━━"),
+        );
+        pb.finish();
     }
 
     println!();

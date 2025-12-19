@@ -11,13 +11,19 @@ pub struct ManagerStats {
     pub orphaned_packages: Option<u32>,
     pub orphaned_size_mb: Option<f64>,
     pub cache_size_mb: Option<f64>,
+    pub mirror_url: Option<String>,
+    pub mirror_sync_age_hours: Option<f64>,
 }
 
 pub trait PackageManager {
-    // local, fast
+    // local + fast network operations
     fn get_stats(&self) -> ManagerStats;
 
-    // network, slow
+    // slow network operation 
+    fn test_mirror_speed_with_progress<F>(&self, mirror_url: &str, progress_callback: F) -> Option<f64>
+    where
+        F: Fn(u64);
+
     fn test_mirror_health(&self) -> Option<MirrorHealth>;
 }
 

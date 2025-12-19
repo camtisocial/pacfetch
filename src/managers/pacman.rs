@@ -240,7 +240,6 @@ impl FetchPacmanStats {
     }
 
     /// Parse /etc/pacman.d/mirrorlist to find the first active mirror
-    /// Returns the mirror URL (without the $repo/$arch suffix)
     fn get_mirror_url(&self) -> Option<String> {
         let mirrorlist = fs::read_to_string("/etc/pacman.d/mirrorlist").ok()?;
 
@@ -249,9 +248,6 @@ impl FetchPacmanStats {
             // Look for uncommented Server lines
             if trimmed.starts_with("Server = ") {
                 let url = trimmed.strip_prefix("Server = ")?;
-                // Remove $repo and $arch variables to get base URL
-                // Example: https://mirror.example.com/$repo/os/$arch
-                // -> https://mirror.example.com
                 let base_url = url.split("/$repo").next()?;
                 return Some(base_url.to_string());
             }
@@ -261,6 +257,16 @@ impl FetchPacmanStats {
 
     /// test download speed with test file (extra.files)
     fn test_mirror_speed(&self, mirror_url: &str) -> Option<f64> {
+        self.test_mirror_speed_with_progress_impl(mirror_url, |_| {})
+    }
+
+    /// test download speed with progress callback (private implementation)
+    fn test_mirror_speed_with_progress_impl<F>(&self, mirror_url: &str, progress_callback: F) -> Option<f64>
+    where
+        F: Fn(u64),
+    {
+        use std::io::Read;
+
         let test_url = format!("{}/extra/os/x86_64/extra.files", mirror_url);
 
         let client = reqwest::blocking::Client::builder()
@@ -269,21 +275,41 @@ impl FetchPacmanStats {
             .ok()?;
 
         let start = Instant::now();
-        let response = client.get(&test_url).send().ok()?;
+        let mut response = client.get(&test_url).send().ok()?;
 
         if !response.status().is_success() {
             return None;
         }
 
-        let bytes = response.bytes().ok()?;
-        let duration = start.elapsed();
+        // Get content length for progress calculation
+        let total_size = response.content_length().unwrap_or(0);
 
-        let bytes_downloaded = bytes.len() as f64;
+        // Stream the download in chunks and track progress
+        let mut downloaded: u64 = 0;
+        let mut buffer = vec![0; 8192];
+
+        loop {
+            match response.read(&mut buffer) {
+                Ok(0) => break, // EOF
+                Ok(n) => {
+                    downloaded += n as u64;
+
+                    // Calculate and report progress percentage
+                    if total_size > 0 {
+                        let progress = (downloaded * 100) / total_size;
+                        progress_callback(progress);
+                    }
+                }
+                Err(_) => return None,
+            }
+        }
+
+        let duration = start.elapsed();
         let seconds = duration.as_secs_f64();
 
         if seconds > 0.0 {
             // Convert to MB/s
-            Some(bytes_downloaded / seconds / 1_048_576.0)
+            Some(downloaded as f64 / seconds / 1_048_576.0)
         } else {
             None
         }
@@ -322,6 +348,12 @@ impl PackageManager for FetchPacmanStats {
         let (download_size, total_installed_size, net_upgrade_size) = self.get_upgrade_sizes();
         let (orphaned_count, orphaned_size) = self.get_orphaned_packages();
 
+        // Get mirror info 
+        let mirror_url = self.get_mirror_url();
+        let mirror_sync_age = mirror_url
+            .as_ref()
+            .and_then(|url| self.check_mirror_sync(url));
+
         ManagerStats {
             total_installed: self.get_installed_count(),
             total_upgradable: self.get_upgradable_count(),
@@ -332,7 +364,16 @@ impl PackageManager for FetchPacmanStats {
             orphaned_packages: orphaned_count,
             orphaned_size_mb: orphaned_size,
             cache_size_mb: self.get_cache_size(),
+            mirror_url,
+            mirror_sync_age_hours: mirror_sync_age,
         }
+    }
+
+    fn test_mirror_speed_with_progress<F>(&self, mirror_url: &str, progress_callback: F) -> Option<f64>
+    where
+        F: Fn(u64),
+    {
+        self.test_mirror_speed_with_progress_impl(mirror_url, progress_callback)
     }
 
     fn test_mirror_health(&self) -> Option<MirrorHealth> {

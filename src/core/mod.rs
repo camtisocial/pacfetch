@@ -1,12 +1,21 @@
 use crate::managers::{ManagerStats, MirrorHealth, PackageManager, pacman::FetchPacmanStats};
 
-// local queries only
+// local queries + fast network (mirror URL, sync age)
 pub fn get_manager_stats() -> ManagerStats {
     let backend = FetchPacmanStats;
     backend.get_stats()
 }
 
-// network requests, much slower, will be run asynchronously
+// slow network - speed test with progress reporting (0-100%)
+pub fn test_mirror_speed_with_progress<F>(mirror_url: &str, progress_callback: F) -> Option<f64>
+where
+    F: Fn(u64),
+{
+    let backend = FetchPacmanStats;
+    backend.test_mirror_speed_with_progress(mirror_url, progress_callback)
+}
+
+// convenience method for backward compatibility (plain mode)
 pub fn test_mirror_health() -> Option<MirrorHealth> {
     let backend = FetchPacmanStats;
     backend.test_mirror_health()
