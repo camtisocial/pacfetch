@@ -1,11 +1,17 @@
+mod ascii;
+
 use crate::core;
 use crate::managers::ManagerStats;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::io;
+use indicatif::{ProgressBar, ProgressStyle};
+use std::io::{self, Write};
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
 use termimad::crossterm::style::{Color::*, Stylize};
-use termimad::{MadSkin, rgb};
+use termimad::crossterm::{
+    cursor::{MoveToColumn, MoveUp, MoveDown},
+    terminal::{Clear, ClearType},
+    ExecutableCommand,
+};
 
 pub fn display_stats(stats: &ManagerStats) {
     println!("----- upkg -----");
@@ -94,10 +100,7 @@ pub fn display_stats_with_graphics(
     speed_rx: Receiver<Option<f64>>,
 ) -> io::Result<()> {
 
-    let mut skin = MadSkin::default();
-    skin.set_headers_fg(rgb(255, 187, 0));
-    skin.bold.set_fg(Yellow);
-    skin.italic.set_fg(Cyan);
+    let ascii_art = &ascii::PACMAN_ART;
 
     // Format stats
     let last_update = stats
@@ -148,71 +151,43 @@ pub fn display_stats_with_graphics(
         "-".to_string()
     };
 
-    // Print all fast stats 
-    let content = format!(
-        r#"
-----
-**{:<20}** {}
-**{:<20}** {}
-**{:<20}** {}
-**{:<20}** {}
-**{:<20}** {}
-**{:<20}** {}
-**{:<20}** {}
-**{:<20}** {}
-**{:<20}** {}
-**{:<20}** {}"#,
-        "Installed:",
-        stats.total_installed,
-        "Upgradable:",
-        stats.total_upgradable,
-        "Last System Update:",
-        last_update,
-        "Download Size:",
-        download_size,
-        "Installed Size:",
-        installed_size,
-        "Net Upgrade Size:",
-        net_upgrade,
-        "Orphaned Packages:",
-        orphaned,
-        "Package Cache:",
-        cache,
-        "Mirror URL:",
-        mirror_url,
-        "Mirror Last Sync:",
-        sync_age,
-    );
+    // format stat lines that will be combined with ascii art as its printed
+    let stats_lines = vec![
+        format!("{} {}", "Installed:".bold().with(Yellow), stats.total_installed),
+        format!("{} {}", "Upgradable:".bold().with(Yellow), stats.total_upgradable),
+        format!("{} {}", "Last System Update:".bold().with(Yellow), last_update),
+        format!("{} {}", "Download Size:".bold().with(Yellow), download_size),
+        format!("{} {}", "Installed Size:".bold().with(Yellow), installed_size),
+        format!("{} {}", "Net Upgrade Size:".bold().with(Yellow), net_upgrade),
+        format!("{} {}", "Orphaned Packages:".bold().with(Yellow), orphaned),
+        format!("{} {}", "Package Cache:".bold().with(Yellow), cache),
+        format!("{} {}", "Mirror URL:".bold().with(Yellow), mirror_url),
+        format!("{} {}", "Mirror Last Sync:".bold().with(Yellow), sync_age),
+        format!("{} {}", "Mirror Speed:".bold().with(Yellow), "-"),
+        format!("{} {}", "Download ETA:".bold().with(Yellow), "-"),
+    ];
 
-    let width = 80;
-    print!("{}", skin.text(&content, Some(width)));
+    // Print all ASCII art and stats side by side
+    println!();
+    let max_lines = ascii_art.len().max(stats_lines.len());
+    for i in 0..max_lines {
+        let art_line = ascii_art.get(i).copied().unwrap_or("                       ");
+        let stat_line = stats_lines.get(i).map(|s| s.as_str()).unwrap_or("");
+        println!("{} {}", art_line.cyan(), stat_line);
+    }
 
-    let mp = MultiProgress::new();
+    // Move cursor up to build progress bar 
+    let mut stdout = io::stdout();
+    stdout.execute(MoveUp(4))?;
+    stdout.execute(MoveToColumn(0))?;
+    stdout.flush()?;
 
-    // using progress bars to update text in place 
-    let speed_bar = mp.add(ProgressBar::new(1));
-    let speed_label = "Mirror Speed:".bold().with(Yellow).to_string();
-    speed_bar.set_style(
-        ProgressStyle::default_bar()
-            .template(&format!("{}        {{msg}}", speed_label))
-            .expect("Failed to create speed template"),
-    );
-    speed_bar.set_message("-");
-
-    let eta_bar = mp.add(ProgressBar::new(1));
-    let eta_label = "Download ETA:      ".bold().with(Yellow).to_string();
-    eta_bar.set_style(
-        ProgressStyle::default_bar()
-            .template(&format!("{}  {{msg}}", eta_label))
-            .expect("Failed to create ETA template"),
-    );
-    eta_bar.set_message("-");
-
-    // Create the actual progress bar
-    let pb = mp.add(ProgressBar::new(100));
+    // Create progress bar
+    let art_line_12 = ascii_art.get(12).copied().unwrap_or("                       ");
+    let pb = ProgressBar::new(100);
     pb.set_style(
         ProgressStyle::default_bar()
-            .template("{spinner:.cyan} {msg} {bar:20.cyan/blue} {pos}%")
+            .template(&format!("{} {{spinner:.cyan}} {{msg}} {{bar:20.cyan/blue}} {{pos}}%", art_line_12.cyan()))
             .expect("Failed to create progress bar template")
             .progress_chars("━━╸")
             .tick_strings(&["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"]),
@@ -235,9 +210,23 @@ pub fn display_stats_with_graphics(
         }
     }
 
-    // update values
+    // reprint progrsess bar when finished
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template(&format!("{} {{bar:20.cyan/blue}} {{pos}}%", art_line_12.cyan()))
+            .expect("Failed to create final template")
+            .progress_chars("━━━━━━━━━━━━━━━━━━━━"),
+    );
+    pb.finish();
+
+    // Progress bar finishes on line 12, need to move down 4 lines to get to line 16
+    let mut stdout = io::stdout();
+    stdout.execute(MoveDown(4))?;
+    stdout.flush()?;
+
+    // Update Mirror Speed and Download ETA using crossterm
     if let Ok(Some(speed)) = speed_rx.recv() {
-        // estimate download time
+        // Calculate download time estimate
         let eta_display = if let Some(size) = stats.download_size_mb {
             if size > 0.0 {
                 let eta_seconds = size / speed;
@@ -259,21 +248,30 @@ pub fn display_stats_with_graphics(
             "-".to_string()
         };
 
-        // Update speed and ETA bars with actual values
-        speed_bar.set_message(format!("{:.1} MB/s", speed));
-        speed_bar.finish();
+        // Move up to Mirror Speed line (line 10)
+        // Current position is after line 15, so move up 6 lines
+        stdout.execute(MoveUp(6))?;
+        stdout.execute(MoveToColumn(0))?;
 
-        eta_bar.set_message(eta_display);
-        eta_bar.finish();
+        // Reprint Mirror Speed line with new value
+        let speed_art_line = ascii_art.get(10).copied().unwrap_or("                       ");
+        let speed_value = format!("{} {:.1} MB/s", "Mirror Speed:".bold().with(Yellow), speed);
+        print!("{} {}", speed_art_line.cyan(), speed_value);
+        stdout.execute(Clear(ClearType::UntilNewLine))?;
 
-        // reprint to get rid of spinner, probalby remove this later
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template("{bar:20.cyan/blue} {pos}%")
-                .expect("Failed to create final template")
-                .progress_chars("━━━━━━━━━━━━━━━━━━━━"),
-        );
-        pb.finish();
+        // Move down to Download ETA line (line 11)
+        stdout.execute(MoveDown(1))?;
+        stdout.execute(MoveToColumn(0))?;
+
+        // Reprint Download ETA line with new value
+        let eta_art_line = ascii_art.get(11).copied().unwrap_or("                       ");
+        let eta_value = format!("{} {}", "Download ETA:".bold().with(Yellow), eta_display);
+        print!("{} {}", eta_art_line.cyan(), eta_value);
+        stdout.execute(Clear(ClearType::UntilNewLine))?;
+
+        // Move cursor back down past all content (to line 16)
+        stdout.execute(MoveDown(5))?;
+        stdout.flush()?;
     }
 
     println!();

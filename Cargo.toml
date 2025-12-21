@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 chrono = "0.4"
 regex = "1.10"
-alpm = "4"
+alpm = "5"
 reqwest = { version = "0.12", features = ["blocking"] }
 termimad = "0.34.1"
 indicatif = "0.17"
