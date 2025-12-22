@@ -176,7 +176,7 @@ pub fn display_stats_with_graphics(
         println!("{} {}", art_line.cyan(), stat_line);
     }
 
-    // Move cursor up to build progress bar 
+    // Move cursor up to build progress bar
     let mut stdout = io::stdout();
     stdout.execute(MoveUp(4))?;
     stdout.execute(MoveToColumn(0))?;
@@ -272,6 +272,83 @@ pub fn display_stats_with_graphics(
         // Move cursor back down past all content (to line 16)
         stdout.execute(MoveDown(5))?;
         stdout.flush()?;
+    }
+
+    println!();
+    Ok(())
+}
+
+pub fn display_stats_with_graphics_no_speed(stats: &ManagerStats) -> io::Result<()> {
+    let ascii_art = &ascii::PACMAN_ART;
+
+    // Format stats
+    let last_update = stats
+        .days_since_last_update
+        .map(|s| core::normalize_duration(s))
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    let download_size = stats
+        .download_size_mb
+        .map(|s| format!("{:.2} MiB", s))
+        .unwrap_or_else(|| "-".to_string());
+
+    let installed_size = stats
+        .total_installed_size_mb
+        .map(|s| format!("{:.2} MiB", s))
+        .unwrap_or_else(|| "-".to_string());
+
+    let net_upgrade = stats
+        .net_upgrade_size_mb
+        .map(|s| format!("{:.2} MiB", s))
+        .unwrap_or_else(|| "-".to_string());
+
+    let orphaned = if let Some(count) = stats.orphaned_packages {
+        if let Some(size) = stats.orphaned_size_mb {
+            format!("{} ({:.2} MiB)", count, size)
+        } else {
+            count.to_string()
+        }
+    } else {
+        "-".to_string()
+    };
+
+    let cache = stats
+        .cache_size_mb
+        .map(|s| format!("{:.2} MiB", s))
+        .unwrap_or_else(|| "-".to_string());
+
+    // display mirror info
+    let mirror_url = stats
+        .mirror_url
+        .as_ref()
+        .map(|s| s.as_str())
+        .unwrap_or("Unknown");
+
+    let sync_age = if let Some(age) = stats.mirror_sync_age_hours {
+        format!("{:.1} hours ago", age)
+    } else {
+        "-".to_string()
+    };
+
+    let stats_lines = vec![
+        format!("{} {}", "Installed:".bold().with(Yellow), stats.total_installed),
+        format!("{} {}", "Upgradable:".bold().with(Yellow), stats.total_upgradable),
+        format!("{} {}", "Last System Update:".bold().with(Yellow), last_update),
+        format!("{} {}", "Download Size:".bold().with(Yellow), download_size),
+        format!("{} {}", "Installed Size:".bold().with(Yellow), installed_size),
+        format!("{} {}", "Net Upgrade Size:".bold().with(Yellow), net_upgrade),
+        format!("{} {}", "Orphaned Packages:".bold().with(Yellow), orphaned),
+        format!("{} {}", "Package Cache:".bold().with(Yellow), cache),
+        format!("{} {}", "Mirror URL:".bold().with(Yellow), mirror_url),
+        format!("{} {}", "Mirror Last Sync:".bold().with(Yellow), sync_age),
+    ];
+
+    println!();
+    let max_lines = ascii_art.len().max(stats_lines.len());
+    for i in 0..max_lines {
+        let art_line = ascii_art.get(i).copied().unwrap_or("                       ");
+        let stat_line = stats_lines.get(i).map(|s| s.as_str()).unwrap_or("");
+        println!("{} {}", art_line.cyan(), stat_line);
     }
 
     println!();

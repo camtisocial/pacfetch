@@ -8,7 +8,8 @@ use std::thread;
 fn main() {
     //checking for flags
     let args: Vec<String> = std::env::args().collect();
-    let text_mode= args.contains(&"--text".to_string()) || args.contains(&"-t".to_string());
+    let text_mode = args.contains(&"--text".to_string()) || args.contains(&"-t".to_string());
+    let speed_test = args.contains(&"--speed".to_string()) || args.contains(&"-s".to_string());
 
     println!();
 
@@ -16,28 +17,53 @@ fn main() {
     let stats = core::get_manager_stats();
 
     if text_mode {
-        let mirror = core::test_mirror_health();
-        ui::display_stats(&stats);
-        ui::display_mirror_health(&mirror, &stats);
+        if speed_test {
+            // Text mode with speed test
+            let mirror = core::test_mirror_health();
+            ui::display_stats(&stats);
+            ui::display_mirror_health(&mirror, &stats);
+        } else {
+            // Text mode without speed test
+            ui::display_stats(&stats);
+
+            // Build MirrorHealth from stats data (no speed test)
+            let mirror = if let Some(ref mirror_url) = stats.mirror_url {
+                Some(managers::MirrorHealth {
+                    url: mirror_url.clone(),
+                    speed_mbps: None,
+                    sync_age_hours: stats.mirror_sync_age_hours,
+                })
+            } else {
+                None
+            };
+            ui::display_mirror_health(&mirror, &stats);
+        }
     } else {
-        if let Some(ref mirror_url) = stats.mirror_url {
-            // Have mirror URL - spawn thread for speed test
-            let mirror_url = mirror_url.clone();
-            let (progress_tx, progress_rx) = mpsc::channel();
-            let (speed_tx, speed_rx) = mpsc::channel();
+        if speed_test {
+            // Graphics mode with speed test
+            if let Some(ref mirror_url) = stats.mirror_url {
+                let mirror_url = mirror_url.clone();
+                let (progress_tx, progress_rx) = mpsc::channel();
+                let (speed_tx, speed_rx) = mpsc::channel();
 
-            thread::spawn(move || {
-                let speed = core::test_mirror_speed_with_progress(&mirror_url, |progress| {
-                    let _ = progress_tx.send(progress);
+                thread::spawn(move || {
+                    let speed = core::test_mirror_speed_with_progress(&mirror_url, |progress| {
+                        let _ = progress_tx.send(progress);
+                    });
+                    let _ = speed_tx.send(speed);
                 });
-                let _ = speed_tx.send(speed);
-            });
 
-            if let Err(e) = ui::display_stats_with_graphics(&stats, progress_rx, speed_rx) {
-                eprintln!("Error running TUI: {}", e);
+                if let Err(e) = ui::display_stats_with_graphics(&stats, progress_rx, speed_rx) {
+                    eprintln!("Error running TUI: {}", e);
+                }
+            } else {
+                ui::display_stats(&stats);
             }
         } else {
-            ui::display_stats(&stats);
+            // Graphics mode without speed test (default)
+            if let Err(e) = ui::display_stats_with_graphics_no_speed(&stats) {
+                eprintln!("Error running graphics display: {}", e);
+            }
         }
     }
 }
