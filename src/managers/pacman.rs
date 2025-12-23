@@ -360,6 +360,21 @@ impl FetchPacmanStats {
 }
 
 impl PackageManager for FetchPacmanStats {
+    fn sync_databases(&self) -> Result<(), String> {
+        // requires root
+        let output = Command::new("pacman")
+            .arg("-Sy")
+            .output()
+            .map_err(|e| format!("Failed to execute pacman: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("pacman -Sy failed: {}", stderr.trim()));
+        }
+
+        Ok(())
+    }
+
     fn get_stats(&self) -> ManagerStats {
         let (download_size, total_installed_size, net_upgrade_size) = self.get_upgrade_sizes();
         let (orphaned_count, orphaned_size) = self.get_orphaned_packages();

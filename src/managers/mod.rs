@@ -17,10 +17,13 @@ pub struct ManagerStats {
 }
 
 pub trait PackageManager {
+    // requires root
+    fn sync_databases(&self) -> Result<(), String>;
+
     // local + fast network operations
     fn get_stats(&self) -> ManagerStats;
 
-    // slow network operation 
+    // slow network operation
     fn test_mirror_speed_with_progress<F>(&self, mirror_url: &str, progress_callback: F) -> Option<f64>
     where
         F: Fn(u64);
