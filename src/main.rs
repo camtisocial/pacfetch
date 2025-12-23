@@ -2,18 +2,34 @@ mod core;
 mod managers;
 mod ui;
 
+use clap::Parser;
 use std::sync::mpsc;
 use std::thread;
 
+/// Display information about your package manager
+#[derive(Parser)]
+#[command(name = "upkg")]
+#[command(version)]
+#[command(about = "Display information about your package manager", long_about = None)]
+
+struct Cli {
+    /// text mode 
+    #[arg(short, long)]
+    text: bool,
+
+    /// include speed test
+    #[arg(short, long)]
+    speed: bool,
+}
+
 fn main() {
-    //checking for flags
-    let args: Vec<String> = std::env::args().collect();
-    let text_mode = args.contains(&"--text".to_string()) || args.contains(&"-t".to_string());
-    let speed_test = args.contains(&"--speed".to_string()) || args.contains(&"-s".to_string());
+    let cli = Cli::parse();
+    let text_mode = cli.text;
+    let speed_test = cli.speed;
 
     println!();
 
-    // Get all local stats + fast network operations (mirror URL, sync age)
+    // get fast stats
     let stats = core::get_manager_stats();
 
     if text_mode {
