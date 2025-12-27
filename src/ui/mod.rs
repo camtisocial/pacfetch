@@ -169,18 +169,18 @@ pub fn display_stats_with_graphics(
     }
 
     stats_lines.extend(vec![
-        format!("{} {}", "Installed:".bold().with(Yellow), stats.total_installed),
-        format!("{} {}", "Upgradable:".bold().with(Yellow), stats.total_upgradable),
-        format!("{} {}", "Last System Update:".bold().with(Yellow), last_update),
-        format!("{} {}", "Download Size:".bold().with(Yellow), download_size),
-        format!("{} {}", "Installed Size:".bold().with(Yellow), installed_size),
-        format!("{} {}", "Net Upgrade Size:".bold().with(Yellow), net_upgrade),
-        format!("{} {}", "Orphaned Packages:".bold().with(Yellow), orphaned),
-        format!("{} {}", "Package Cache:".bold().with(Yellow), cache),
-        format!("{} {}", "Mirror URL:".bold().with(Yellow), mirror_url),
-        format!("{} {}", "Mirror Last Sync:".bold().with(Yellow), sync_age),
-        format!("{} {}", "Mirror Speed:".bold().with(Yellow), "-"),
-        format!("{} {}", "Download ETA:".bold().with(Yellow), "-"),
+        format!("{}: {}", "Installed".bold().with(Yellow), stats.total_installed),
+        format!("{}: {}", "Upgradable".bold().with(Yellow), stats.total_upgradable),
+        format!("{}: {}", "Last System Update".bold().with(Yellow), last_update),
+        format!("{}: {}", "Download Size".bold().with(Yellow), download_size),
+        format!("{}: {}", "Installed Size".bold().with(Yellow), installed_size),
+        format!("{}: {}", "Net Upgrade Size".bold().with(Yellow), net_upgrade),
+        format!("{}: {}", "Orphaned Packages".bold().with(Yellow), orphaned),
+        format!("{}: {}", "Package Cache".bold().with(Yellow), cache),
+        format!("{}: {}", "Mirror URL".bold().with(Yellow), mirror_url),
+        format!("{}: {}", "Mirror Last Sync".bold().with(Yellow), sync_age),
+        format!("{}: {}", "Mirror Speed".bold().with(Yellow), "-"),
+        format!("{}: {}", "Download ETA".bold().with(Yellow), "-"),
     ]);
 
     // Print all ASCII art and stats side by side
@@ -270,7 +270,7 @@ pub fn display_stats_with_graphics(
 
         // Reprint Mirror Speed line with new value
         let speed_art_line = ascii_art.get(12).copied().unwrap_or("                       ");
-        let speed_value = format!("{} {:.1} MB/s", "Mirror Speed:".bold().with(Yellow), speed);
+        let speed_value = format!("{}: {:.1} MB/s", "Mirror Speed".bold().with(Yellow), speed);
         print!("{} {}", speed_art_line.cyan(), speed_value);
         stdout.execute(Clear(ClearType::UntilNewLine))?;
 
@@ -280,7 +280,7 @@ pub fn display_stats_with_graphics(
 
         // Reprint Download ETA line with new value
         let eta_art_line = ascii_art.get(13).copied().unwrap_or("                       ");
-        let eta_value = format!("{} {}", "Download ETA:".bold().with(Yellow), eta_display);
+        let eta_value = format!("{}: {}", "Download ETA".bold().with(Yellow), eta_display);
         print!("{} {}", eta_art_line.cyan(), eta_value);
         stdout.execute(Clear(ClearType::UntilNewLine))?;
 
@@ -354,16 +354,16 @@ pub fn display_stats_with_graphics_no_speed(stats: &ManagerStats) -> io::Result<
     }
 
     stats_lines.extend(vec![
-        format!("{} {}", "Installed:".bold().with(Yellow), stats.total_installed),
-        format!("{} {}", "Upgradable:".bold().with(Yellow), stats.total_upgradable),
-        format!("{} {}", "Last System Update:".bold().with(Yellow), last_update),
-        format!("{} {}", "Download Size:".bold().with(Yellow), download_size),
-        format!("{} {}", "Installed Size:".bold().with(Yellow), installed_size),
-        format!("{} {}", "Net Upgrade Size:".bold().with(Yellow), net_upgrade),
-        format!("{} {}", "Orphaned Packages:".bold().with(Yellow), orphaned),
-        format!("{} {}", "Package Cache:".bold().with(Yellow), cache),
-        format!("{} {}", "Mirror URL:".bold().with(Yellow), mirror_url),
-        format!("{} {}", "Mirror Last Sync:".bold().with(Yellow), sync_age),
+        format!("{}: {}", "Installed".bold().with(Yellow), stats.total_installed),
+        format!("{}: {}", "Upgradable".bold().with(Yellow), stats.total_upgradable),
+        format!("{}: {}", "Last System Update".bold().with(Yellow), last_update),
+        format!("{}: {}", "Download Size".bold().with(Yellow), download_size),
+        format!("{}: {}", "Installed Size".bold().with(Yellow), installed_size),
+        format!("{}: {}", "Net Upgrade Size".bold().with(Yellow), net_upgrade),
+        format!("{}: {}", "Orphaned Packages".bold().with(Yellow), orphaned),
+        format!("{}: {}", "Package Cache".bold().with(Yellow), cache),
+        format!("{}: {}", "Mirror URL".bold().with(Yellow), mirror_url),
+        format!("{}: {}", "Mirror Last Sync".bold().with(Yellow), sync_age),
     ]);
 
     println!();

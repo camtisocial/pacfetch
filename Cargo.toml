@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chrono = "0.4"
 alpm = "5"
+chrono = "0.4"
+clap = { version = "4.5", features = ["derive"] }
+indicatif = "0.17"
+libc = "0.2"
 reqwest = { version = "0.12", features = ["blocking"] }
 termimad = "0.34.1"
-indicatif = "0.17"
-clap = { version = "4.5", features = ["derive"] }

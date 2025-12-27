@@ -357,6 +357,18 @@ impl FetchPacmanStats {
         Some(age_hours.max(0.0))
     }
 
+    /// Check if running as root
+    fn is_root() -> bool {
+        #[cfg(unix)]
+        {
+            unsafe { libc::geteuid() == 0 }
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
+    }
+
 }
 
 impl PackageManager for FetchPacmanStats {
@@ -373,6 +385,80 @@ impl PackageManager for FetchPacmanStats {
         }
 
         Ok(())
+    }
+
+    fn upgrade_system(&self, text_mode: bool, speed_test: bool) -> Result<(), String> {
+        use std::sync::mpsc;
+        use std::thread;
+
+        // Check for root
+        if !Self::is_root() {
+            return Err("Sys upgrade requires root access, rerun with sudo".to_string());
+        }
+
+        // Get and display stats
+        let stats = self.get_stats();
+        if text_mode {
+            if speed_test {
+                // Text mode with speed test
+                let mirror = self.test_mirror_health();
+                crate::ui::display_stats(&stats);
+                crate::ui::display_mirror_health(&mirror, &stats);
+            } else {
+                // Text mode without speed test
+                crate::ui::display_stats(&stats);
+                println!();
+            }
+        } else {
+            if speed_test {
+                // Graphics mode with speed test
+                if let Some(ref mirror_url) = stats.mirror_url {
+                    let mirror_url = mirror_url.clone();
+                    let (progress_tx, progress_rx) = mpsc::channel();
+                    let (speed_tx, speed_rx) = mpsc::channel();
+
+                    thread::spawn(move || {
+                        let backend = FetchPacmanStats;
+                        let speed = backend.test_mirror_speed_with_progress(&mirror_url, |progress| {
+                            let _ = progress_tx.send(progress);
+                        });
+                        let _ = speed_tx.send(speed);
+                    });
+
+                    if let Err(e) = crate::ui::display_stats_with_graphics(&stats, progress_rx, speed_rx) {
+                        eprintln!("Error running TUI: {}", e);
+                    }
+                } else {
+                    crate::ui::display_stats(&stats);
+                    println!();
+                }
+            } else {
+                // Graphics mode without speed test
+                if let Err(e) = crate::ui::display_stats_with_graphics_no_speed(&stats) {
+                    eprintln!("Error running graphics display: {}", e);
+                    // Fall back to text mode
+                    crate::ui::display_stats(&stats);
+                    println!();
+                }
+            }
+        }
+
+        // Run pacman -Syu with inherited stdio (pass-through)
+        // pacman will handle its own confirmation prompt
+        let mut cmd = Command::new("pacman")
+            .arg("-Syu")
+            .spawn()
+            .map_err(|e| format!("Failed to execute pacman: {}", e))?;
+
+        // Wait for completion
+        let status = cmd.wait()
+            .map_err(|e| format!("Failed to wait for pacman: {}", e))?;
+
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("pacman -Syu exited with status: {}", status))
+        }
     }
 
     fn get_stats(&self) -> ManagerStats {

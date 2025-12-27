@@ -1,5 +1,15 @@
 use crate::managers::{ManagerStats, MirrorHealth, PackageManager, pacman::FetchPacmanStats};
 
+pub fn sync_databases() -> Result<(), String> {
+    let backend = FetchPacmanStats;
+    backend.sync_databases()
+}
+
+pub fn upgrade_system(text_mode: bool, speed_test: bool) -> Result<(), String> {
+    let backend = FetchPacmanStats;
+    backend.upgrade_system(text_mode, speed_test)
+}
+
 // local queries + fast network (mirror URL, sync age)
 pub fn get_manager_stats() -> ManagerStats {
     let backend = FetchPacmanStats;

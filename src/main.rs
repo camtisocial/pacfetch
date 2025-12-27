@@ -13,19 +13,45 @@ use std::thread;
 #[command(about = "Display information about your package manager", long_about = None)]
 
 struct Cli {
-    /// text mode 
+    /// text mode
     #[arg(short, long)]
     text: bool,
 
     /// include speed test
     #[arg(short, long)]
     speed: bool,
+
+    /// sync package databases requires root
+    #[arg(short = 'y', long)]
+    sync: bool,
+
+    /// upgrade system packages (runs -Syu) requires root
+    #[arg(short = 'U', long)]
+    upgrade: bool,
 }
 
 fn main() {
     let cli = Cli::parse();
     let text_mode = cli.text;
     let speed_test = cli.speed;
+
+    // Handle database sync if requested
+    if cli.sync {
+        println!("Syncing package databases...");
+        if let Err(e) = core::sync_databases() {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+
+    // Handle system upgrade if requested
+    if cli.upgrade {
+        if let Err(e) = core::upgrade_system(text_mode, speed_test) {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+        std::process::exit(0);
+    }
 
     println!();
 
