@@ -17,13 +17,6 @@ impl FetchPacmanStats {
         stdout.lines().count() as u32
     }
 
-    /// Get the count of upgradable packages using checkupdates
-    fn get_upgradable_count(&self) -> u32 {
-        let output = Command::new("pacman").arg("-Qu").output().unwrap();
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        stdout.lines().count() as u32
-    }
-
     /// get time since last update from /var/log/pacman.log
     /// returns seconds
     fn get_seconds_since_update(&self) -> Option<i64> {
@@ -115,13 +108,15 @@ impl FetchPacmanStats {
         None
     }
 
-    fn get_upgrade_sizes(&self) -> (Option<f64>, Option<f64>, Option<f64>) {
+    /// Returns (download_size_mb, installed_size_mb, net_size_mb, package_count)
+    /// Package count matches pacman -Syu (includes new deps, not just upgrades)
+    fn get_upgrade_sizes(&self) -> (Option<f64>, Option<f64>, Option<f64>, u32) {
 
         // ########## Creating alpm connection, getting sync db and local db #########
 
         let mut alpm = match Alpm::new("/", "/var/lib/pacman") {
             Ok(a) => a,
-            Err(_) => return (None, None, None),
+            Err(_) => return (None, None, None, 0),
         };
 
         // Register sync databases
@@ -131,19 +126,19 @@ impl FetchPacmanStats {
 
         // Set NO_LOCK, avoids needing root
         if alpm.trans_init(alpm::TransFlag::NO_LOCK).is_err() {
-            return (None, None, None);
+            return (None, None, None, 0);
         }
 
         // Add sysupgrade to transaction
         if alpm.sync_sysupgrade(false).is_err() {
             let _ = alpm.trans_release();
-            return (None, None, None);
+            return (None, None, None, 0);
         }
 
         // Prepare the transaction
         if alpm.trans_prepare().is_err() {
             let _ = alpm.trans_release();
-            return (None, None, None);
+            return (None, None, None, 0);
         }
 
         // Get local database for comparing old vs new sizes
@@ -152,19 +147,22 @@ impl FetchPacmanStats {
         let mut total_download_size: i64 = 0;
         let mut total_installed_size: i64 = 0;
         let mut net_upgrade_size: i64 = 0;
+        let mut package_count: u32 = 0;
 
 
         // ########## comparing values/accumulating totals #########
 
-        // Get packages to be upgraded and calculate sizes
+        // Get packages to be upgraded/installed and calculate sizes
+        // This includes upgrades AND new dependencies (matches pacman -Syu output)
         for pkg in alpm.trans_add().into_iter() {
+            package_count += 1;
             total_download_size += pkg.download_size();
             let new_size = pkg.isize();
             total_installed_size += new_size;
 
-            // Check if this is an upgrade
+            // Check if this is an upgrade or new install
             if let Ok(oldpkg) = localdb.pkg(pkg.name()) {
-                // upgrade
+                // upgrade: net size is difference
                 let old_size = oldpkg.isize();
                 net_upgrade_size += new_size - old_size;
             } else {
@@ -194,7 +192,7 @@ impl FetchPacmanStats {
             net_mib = 0.0;
         }
 
-        (Some(download_mib), Some(installed_mib), Some(net_mib))
+        (Some(download_mib), Some(installed_mib), Some(net_mib), package_count)
     }
 
 
@@ -548,9 +546,10 @@ impl PackageManager for FetchPacmanStats {
         let total_start = Instant::now();
 
         let start = Instant::now();
-        let (download_size, total_installed_size, net_upgrade_size) = self.get_upgrade_sizes();
+        // get_upgrade_sizes also returns transaction package count (matches pacman -Syu)
+        let (download_size, total_installed_size, net_upgrade_size, total_upgradable) = self.get_upgrade_sizes();
         if debug {
-            eprintln!("Upgrade sizes: {:?}", start.elapsed());
+            eprintln!("Upgrade sizes + count: {:?}", start.elapsed());
         }
 
         let start = Instant::now();
@@ -580,11 +579,8 @@ impl PackageManager for FetchPacmanStats {
             eprintln!("Installed count: {:?}", start.elapsed());
         }
 
-        let start = Instant::now();
-        let total_upgradable = self.get_upgradable_count();
-        if debug {
-            eprintln!("Upgradable count: {:?}", start.elapsed());
-        }
+        // Note: total_upgradable comes from get_upgrade_sizes() above
+        // This ensures the count matches pacman -Syu (includes new deps)
 
         let start = Instant::now();
         let days_since_last_update = self.get_seconds_since_update();
