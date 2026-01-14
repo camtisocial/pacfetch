@@ -39,16 +39,7 @@ fn main() {
     let text_mode = cli.text;
     let speed_test = cli.speed;
 
-    // Handle database sync if requested
-    if cli.sync {
-        println!("Syncing package databases...");
-        if let Err(e) = core::sync_databases() {
-            eprintln!("Error: {}", e);
-            std::process::exit(1);
-        }
-    }
-
-    // Handle system upgrade if requested
+    // Handle system upgrade if requested (has its own spinner logic)
     if cli.upgrade {
         if let Err(e) = core::upgrade_system(text_mode, speed_test) {
             eprintln!("Error: {}", e);
@@ -57,10 +48,22 @@ fn main() {
         std::process::exit(0);
     }
 
-    println!();
-
-    // get fast stats
-    let stats = core::get_manager_stats(cli.debug);
+    // Get stats (with spinner if syncing)
+    let stats = if cli.sync {
+        let spinner = core::create_spinner("Syncing package databases");
+        if let Err(e) = core::sync_databases() {
+            spinner.finish_and_clear();
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+        spinner.set_message("Gathering stats");
+        let stats = core::get_manager_stats(cli.debug);
+        spinner.finish_and_clear();
+        stats
+    } else {
+        println!();
+        core::get_manager_stats(cli.debug)
+    };
 
     if text_mode {
         if speed_test {

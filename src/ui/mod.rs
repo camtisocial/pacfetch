@@ -205,8 +205,7 @@ pub fn display_stats_with_graphics(
         ProgressStyle::default_bar()
             .template(&format!("{} {{spinner:.cyan}} {{msg}} {{bar:20.cyan/blue}} {{pos}}%", art_line_14.cyan()))
             .expect("Failed to create progress bar template")
-            .progress_chars("━━╸")
-            .tick_strings(&["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"]),
+            .progress_chars("━━╸"),
     );
     pb.set_message("Testing speed");
 

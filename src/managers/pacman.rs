@@ -436,6 +436,23 @@ impl FetchPacmanStats {
         }
     }
 
+    fn run_pacman_silent(args: &[&str]) -> Result<(), String> {
+        use std::process::{Command, Stdio};
+
+        let status = Command::new("pacman")
+            .args(args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map_err(|e| format!("Failed to spawn pacman: {}", e))?;
+
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("pacman {} failed with status: {}", args.join(" "), status))
+        }
+    }
+
     /// Filter mode for run_pacman_pty
     fn should_print(line: &str, mode: &str) -> bool {
         match mode {
@@ -531,18 +548,7 @@ impl FetchPacmanStats {
 
 impl PackageManager for FetchPacmanStats {
     fn sync_databases(&self) -> Result<(), String> {
-        // requires root
-        let output = Command::new("pacman")
-            .arg("-Sy")
-            .output()
-            .map_err(|e| format!("Failed to execute pacman: {}", e))?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("pacman -Sy failed: {}", stderr.trim()));
-        }
-
-        Ok(())
+        Self::run_pacman_silent(&["-Sy"])
     }
 
     fn upgrade_system(&self, text_mode: bool, speed_test: bool) -> Result<(), String> {
@@ -553,11 +559,14 @@ impl PackageManager for FetchPacmanStats {
             return Err("System upgrade requires root access, rerun with sudo".to_string());
         }
 
-        // Step 1: Sync databases first (filter "is up to date" messages)
-        Self::run_pacman_pty(&["-Sy"], "sync")?;
-
-        // Step 2: Get and display stats (now accurate after sync)
+        // 1: Start spinner, sync databases, get stats, clear spinner
+        let spinner = crate::core::create_spinner("Syncing package databases");
+        Self::run_pacman_silent(&["-Sy"])?;
+        spinner.set_message("Gathering stats");
         let stats = self.get_stats(false);
+        spinner.finish_and_clear();
+
+        // 2: Display stats
         if text_mode {
             if speed_test {
                 // Text mode with speed test
@@ -606,7 +615,7 @@ impl PackageManager for FetchPacmanStats {
             }
         }
 
-        // Step 3: Run upgrade (filter size summaries since we already displayed them)
+        // 3: Run upgrade
         Self::run_pacman_pty(&["-Su"], "upgrade")
     }
 
@@ -614,7 +623,6 @@ impl PackageManager for FetchPacmanStats {
         let total_start = Instant::now();
 
         let start = Instant::now();
-        // get_upgrade_sizes also returns transaction package count (matches pacman -Syu)
         let (download_size, total_installed_size, net_upgrade_size, total_upgradable) =
             self.get_upgrade_sizes();
         if debug {
@@ -647,9 +655,6 @@ impl PackageManager for FetchPacmanStats {
         if debug {
             eprintln!("Installed count: {:?}", start.elapsed());
         }
-
-        // Note: total_upgradable comes from get_upgrade_sizes() above
-        // This ensures the count matches pacman -Syu (includes new deps)
 
         let start = Instant::now();
         let days_since_last_update = self.get_seconds_since_update();
