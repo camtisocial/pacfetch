@@ -376,7 +376,7 @@ impl FetchPacmanStats {
         }
     }
 
-    fn check_mirror_sync(&self, mirror_url: &str) -> Option<f64> {
+    fn check_mirror_sync(mirror_url: &str) -> Option<f64> {
         let lastsync_url = format!("{}/lastsync", mirror_url);
 
         let client = reqwest::blocking::Client::builder()
@@ -553,6 +553,11 @@ impl FetchPacmanStats {
         if !line_buffer.is_empty() && Self::should_print(&line_buffer, filter) {
             println!("{}", line_buffer);
         }
+
+        // Reset terminal state after pacman's progress bars
+        print!("\x1b[0m"); 
+        let _ = stdout.flush();
+
         Ok(())
     }
 
@@ -723,21 +728,21 @@ impl PackageManager for FetchPacmanStats {
             eprintln!("Orphaned packages: {:?}", start.elapsed());
         }
 
-        // Get mirror info
+        // Get mirror info and spawn network request 
         let start = Instant::now();
         let mirror_url = self.get_mirror_url();
         if debug {
             eprintln!("Mirror URL: {:?}", start.elapsed());
         }
 
-        let start = Instant::now();
-        let mirror_sync_age = mirror_url
-            .as_ref()
-            .and_then(|url| self.check_mirror_sync(url));
-        if debug {
-            eprintln!("Mirror sync age: {:?}", start.elapsed());
-        }
+        // Spawn sync age check in background thread
+        let sync_start = Instant::now();
+        let mirror_url_clone = mirror_url.clone();
+        let sync_handle = std::thread::spawn(move || {
+            mirror_url_clone.as_ref().and_then(|url| Self::check_mirror_sync(url))
+        });
 
+        // Do local operations while network request runs in parallel
         let start = Instant::now();
         let total_installed = self.get_installed_count();
         if debug {
@@ -760,6 +765,11 @@ impl PackageManager for FetchPacmanStats {
         let pacman_version = self.get_pacman_version();
         if debug {
             eprintln!("Pacman version: {:?}", start.elapsed());
+        }
+
+        let mirror_sync_age = sync_handle.join().ok().flatten();
+        if debug {
+            eprintln!("Mirror sync age: {:?}", sync_start.elapsed());
         }
 
         if debug {
@@ -796,7 +806,7 @@ impl PackageManager for FetchPacmanStats {
     fn test_mirror_health(&self) -> Option<MirrorHealth> {
         let mirror_url = self.get_mirror_url()?;
         let speed = self.test_mirror_speed_with_progress_impl(&mirror_url, |_| {});
-        let sync_age = self.check_mirror_sync(&mirror_url);
+        let sync_age = Self::check_mirror_sync(&mirror_url);
 
         Some(MirrorHealth {
             url: mirror_url,

@@ -70,9 +70,16 @@ pub fn display_mirror_health(
     mirror: &Option<crate::managers::MirrorHealth>,
     stats: &ManagerStats,
 ) {
+    println!("----- Mirror -----");
+
     if let Some(m) = mirror {
-        println!("----- Mirror Health -----");
-        println!("Mirror: {}", m.url);
+        let status = if let Some(age) = m.sync_age_hours {
+            format!("OK (last sync {:.1} hours)", age)
+        } else {
+            "Err - could not check sync status".to_string()
+        };
+        println!("Status: {}", status);
+        println!("URL: {}", m.url);
 
         if let Some(speed) = m.speed_mbps {
             println!("Speed: {:.1} MB/s", speed);
@@ -95,10 +102,8 @@ pub fn display_mirror_health(
                 }
             }
         }
-
-        if let Some(age) = m.sync_age_hours {
-            println!("Last Sync: {:.1} hours ago", age);
-        }
+    } else {
+        println!("Status: Err - no mirror found");
     }
 }
 
@@ -152,10 +157,10 @@ pub fn display_stats_with_graphics(
         .map(|s| s.as_str())
         .unwrap_or("Unknown");
 
-    let sync_age = if let Some(age) = stats.mirror_sync_age_hours {
-        format!("{:.1} hours ago", age)
-    } else {
-        "-".to_string()
+    let mirror_status = match (&stats.mirror_url, stats.mirror_sync_age_hours) {
+        (Some(_), Some(age)) => format!("{} (last sync {:.1} hours)", "OK".green(), age),
+        (Some(_), None) => format!("{} - could not check sync status", "Err".red()),
+        (None, _) => format!("{} - no mirror found", "Err".red()),
     };
 
     // format stat lines that will be combined with ascii art as its printed
@@ -178,7 +183,7 @@ pub fn display_stats_with_graphics(
         format!("{}: {}", "Orphaned Packages".bold().with(Yellow), orphaned),
         format!("{}: {}", "Package Cache".bold().with(Yellow), cache),
         format!("{}: {}", "Mirror URL".bold().with(Yellow), mirror_url),
-        format!("{}: {}", "Mirror Last Sync".bold().with(Yellow), sync_age),
+        format!("{}: {}", "Mirror Health".bold().with(Yellow), mirror_status),
         format!("{}: {}", "Mirror Speed".bold().with(Yellow), "-"),
         format!("{}: {}", "Download ETA".bold().with(Yellow), "-"),
     ]);
@@ -338,10 +343,10 @@ pub fn display_stats_with_graphics_no_speed(stats: &ManagerStats) -> io::Result<
         .map(|s| s.as_str())
         .unwrap_or("Unknown");
 
-    let sync_age = if let Some(age) = stats.mirror_sync_age_hours {
-        format!("{:.1} hours ago", age)
-    } else {
-        "-".to_string()
+    let mirror_status = match (&stats.mirror_url, stats.mirror_sync_age_hours) {
+        (Some(_), Some(age)) => format!("{} (last sync {:.1} hours)", "OK".green(), age),
+        (Some(_), None) => format!("{} - could not check sync status", "Err".red()),
+        (None, _) => format!("{} - no mirror found", "Err".red()),
     };
 
     let mut stats_lines = vec![];
@@ -362,7 +367,7 @@ pub fn display_stats_with_graphics_no_speed(stats: &ManagerStats) -> io::Result<
         format!("{}: {}", "Orphaned Packages".bold().with(Yellow), orphaned),
         format!("{}: {}", "Package Cache".bold().with(Yellow), cache),
         format!("{}: {}", "Mirror URL".bold().with(Yellow), mirror_url),
-        format!("{}: {}", "Mirror Last Sync".bold().with(Yellow), sync_age),
+        format!("{}: {}", "Mirror Health".bold().with(Yellow), mirror_status),
     ]);
 
     stats_lines.push(String::new());

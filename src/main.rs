@@ -104,9 +104,14 @@ fn main() {
         let stats = core::get_manager_stats(cli.debug);
         spinner.finish_and_clear();
         stats
-    } else {
+    } else if text_mode || cli.debug {
         println!();
         core::get_manager_stats(cli.debug)
+    } else {
+        let spinner = core::create_spinner("Gathering stats");
+        let stats = core::get_manager_stats(cli.debug);
+        spinner.finish_and_clear();
+        stats
     };
 
     if text_mode {
