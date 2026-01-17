@@ -100,15 +100,15 @@ fn main() {
             std::process::exit(1);
         }
         let spinner = util::create_spinner("Gathering stats");
-        let stats = pacman::get_stats(&config.display.stats, cli.debug);
+        let stats = pacman::get_stats(&config.display.stats, cli.debug, Some(&spinner));
         spinner.finish_and_clear();
         stats
     } else if text_mode || cli.debug {
         println!();
-        pacman::get_stats(&config.display.stats, cli.debug)
+        pacman::get_stats(&config.display.stats, cli.debug, None)
     } else {
         let spinner = util::create_spinner("Gathering stats");
-        let stats = pacman::get_stats(&config.display.stats, cli.debug);
+        let stats = pacman::get_stats(&config.display.stats, cli.debug, Some(&spinner));
         spinner.finish_and_clear();
         stats
     };

@@ -305,7 +305,7 @@ fn check_mirror_sync(mirror_url: &str) -> Option<f64> {
     let lastsync_url = format!("{}/lastsync", mirror_url);
 
     let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(5))
         .build()
         .ok()?;
 
@@ -542,7 +542,7 @@ pub fn upgrade_system(text_mode: bool, sync_first: bool) -> Result<(), String> {
         run_pacman_sync()?;
     }
     let spinner = util::create_spinner("Gathering stats");
-    let stats = get_stats(&config.display.stats, false);
+    let stats = get_stats(&config.display.stats, false, Some(&spinner));
     spinner.finish_and_clear();
 
     if text_mode {
@@ -559,7 +559,7 @@ pub fn upgrade_system(text_mode: bool, sync_first: bool) -> Result<(), String> {
     run_pacman_pty(&["-Su"], true)
 }
 
-pub fn get_stats(requested: &[StatId], debug: bool) -> ManagerStats {
+pub fn get_stats(requested: &[StatId], debug: bool, spinner: Option<&ProgressBar>) -> ManagerStats {
     use crate::stats::{
         needs_mirror_health, needs_mirror_url, needs_orphan_stats, needs_upgrade_stats,
     };
@@ -654,6 +654,9 @@ pub fn get_stats(requested: &[StatId], debug: bool) -> ManagerStats {
     }
 
     if let Some((handle, sync_start)) = sync_handle {
+        if let Some(pb) = spinner {
+            pb.set_message("Checking mirror last sync");
+        }
         stats.mirror_sync_age_hours = handle.join().ok().flatten();
         if debug {
             eprintln!("Mirror sync age: {:?}", sync_start.elapsed());
