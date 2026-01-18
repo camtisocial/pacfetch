@@ -373,25 +373,34 @@ fn run_pacman_pty(args: &[&str], filter: bool) -> Result<(), String> {
 
     let mut stdout = std::io::stdout();
     let mut line_buffer = String::new();
+    let mut raw_mode = false; 
+
+    let mut process_exited = false;
 
     loop {
-        match session.is_alive() {
-            Ok(true) => {}
-            Ok(false) => {
-                if !line_buffer.is_empty() && should_print(&line_buffer, filter) {
-                    println!("{}", line_buffer);
-                }
-                return Ok(());
-            }
-            Err(_) => {
-                return Ok(());
+        if !process_exited {
+            match session.is_alive() {
+                Ok(true) => {}
+                Ok(false) => process_exited = true,
+                Err(_) => process_exited = true,
             }
         }
 
         let mut buf = [0u8; 1024];
         match session.try_read(&mut buf) {
-            Ok(0) => continue,
+            Ok(0) => {
+                if process_exited {
+                    break;
+                }
+                continue;
+            }
             Ok(n) => {
+                if raw_mode {
+                    stdout.write_all(&buf[..n]).ok();
+                    stdout.flush().ok();
+                    continue;
+                }
+
                 let chunk = String::from_utf8_lossy(&buf[..n]);
 
                 for ch in chunk.chars() {
@@ -401,11 +410,6 @@ fn run_pacman_pty(args: &[&str], filter: bool) -> Result<(), String> {
                         }
                         line_buffer.clear();
                     } else if ch == '\r' {
-                        if !line_buffer.is_empty() && should_print(&line_buffer, filter) {
-                            print!("\r{}", line_buffer);
-                            let _ = stdout.flush();
-                        }
-                        line_buffer.clear();
                     } else {
                         line_buffer.push(ch);
 
@@ -424,6 +428,7 @@ fn run_pacman_pty(args: &[&str], filter: bool) -> Result<(), String> {
                             let mut input = String::new();
                             if std::io::stdin().read_line(&mut input).is_ok() {
                                 let _ = session.send_line(input.trim());
+                                raw_mode = true;
                             }
                         }
                     }
@@ -431,6 +436,9 @@ fn run_pacman_pty(args: &[&str], filter: bool) -> Result<(), String> {
             }
             Err(e) => match e.kind() {
                 std::io::ErrorKind::WouldBlock | std::io::ErrorKind::Interrupted => {
+                    if process_exited {
+                        break;
+                    }
                     std::thread::sleep(std::time::Duration::from_millis(10));
                 }
                 _ => break,
@@ -514,12 +522,6 @@ fn run_pacman_sync() -> Result<(), String> {
         }
     }
 
-    progress.core = DbSyncState::Complete;
-    progress.extra = DbSyncState::Complete;
-    progress.multilib = DbSyncState::Complete;
-    pb.set_message(progress.format());
-
-    std::thread::sleep(std::time::Duration::from_millis(150));
     pb.finish_and_clear();
 
     Ok(())
