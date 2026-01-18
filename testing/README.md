@@ -11,11 +11,15 @@ an arch environment with pending updates for testing pacfetch -Syu/-Sy/-Su
 cd testing
 
 ./test.sh
+
 ./test.sh -Syu
+
 ./test.sh -Su
+
 ./test.sh -Sy
 
-# Or drop into shell
+
+### Or drop into shell
 ./test.sh bash
 
 ## Updating the test image
