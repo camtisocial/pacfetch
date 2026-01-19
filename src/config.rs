@@ -12,9 +12,15 @@ pub struct Config {
 
 #[derive(Deserialize)]
 pub struct DisplayConfig {
-    /// Which stats to display, in order.
     #[serde(default = "stats::default_stats")]
     pub stats: Vec<StatId>,
+
+    #[serde(default = "default_ascii")]
+    pub ascii: String,
+}
+
+fn default_ascii() -> String {
+    "PACMAN_DEFAULT".to_string()
 }
 
 impl Default for Config {
@@ -29,14 +35,15 @@ impl Default for DisplayConfig {
     fn default() -> Self {
         DisplayConfig {
             stats: stats::default_stats(),
+            ascii: default_ascii(),
         }
     }
 }
 
 impl Config {
-    /// Returns the path to the config file (~/.config/pacfetch.toml).
+    /// Returns ~/.config/pacfetch/pacfetch.toml
     fn config_path() -> Option<PathBuf> {
-        dirs::config_dir().map(|p| p.join("pacfetch.toml"))
+        dirs::config_dir().map(|p| p.join("pacfetch").join("pacfetch.toml"))
     }
 
     pub fn load() -> Self {

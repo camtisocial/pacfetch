@@ -7,7 +7,6 @@ mod util;
 use clap::{CommandFactory, Parser};
 use config::Config;
 
-/// Display information about your package manager
 #[derive(Parser)]
 #[command(name = "pacfetch")]
 #[command(version)]
@@ -42,6 +41,9 @@ struct Cli {
 
     #[arg(short = 'V', short_alias = 'v', long = "version", hide = true)]
     version: bool,
+
+    #[arg(long = "ascii")]
+    ascii: Option<String>,
 }
 
 fn print_error_and_help(msg: &str) -> ! {
@@ -69,7 +71,12 @@ fn main() {
     }
 
     // Load config
-    let config = Config::load();
+    let mut config = Config::load();
+
+    // Override ascii from CLI
+    if let Some(ascii) = cli.ascii {
+        config.display.ascii = ascii;
+    }
 
     let invalid_flag = (cli.sync_op && !cli.sync_db && !cli.upgrade)
         || ((cli.sync_db || cli.upgrade) && !cli.sync_op);

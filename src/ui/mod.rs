@@ -25,7 +25,7 @@ pub fn display_stats(stats: &ManagerStats, config: &Config) {
 }
 
 pub fn display_stats_with_graphics(stats: &ManagerStats, config: &Config) -> io::Result<()> {
-    let ascii_art = &ascii::PACMAN_ART;
+    let ascii_art = ascii::get_art(&config.display.ascii);
 
     // Build stat lines from config
     let mut stats_lines = vec![];
@@ -71,11 +71,21 @@ pub fn display_stats_with_graphics(stats: &ManagerStats, config: &Config) -> io:
     stats_lines.push(color_row_2);
 
     println!();
-    let max_lines = ascii_art.len().max(stats_lines.len());
-    for i in 0..max_lines {
-        let art_line = ascii_art.get(i).copied().unwrap_or("                       ");
-        let stat_line = stats_lines.get(i).map(|s| s.as_str()).unwrap_or("");
-        println!("{} {}", art_line.cyan(), stat_line);
+
+    if ascii_art.is_empty() {
+        for line in &stats_lines {
+            println!("{}", line);
+        }
+    } else {
+        let art_width = ascii_art.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+        let padding = " ".repeat(art_width);
+
+        let max_lines = ascii_art.len().max(stats_lines.len());
+        for i in 0..max_lines {
+            let art_line = ascii_art.get(i).map(|s| s.as_str()).unwrap_or(&padding);
+            let stat_line = stats_lines.get(i).map(|s| s.as_str()).unwrap_or("");
+            println!(" {}   {}", art_line.cyan(), stat_line);
+        }
     }
 
     println!();

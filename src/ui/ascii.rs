@@ -1,20 +1,94 @@
+use std::fs;
+use std::path::Path;
+
+pub fn get_art(config: &str) -> Vec<String> {
+    if config == "NONE" {
+        return vec![];
+    }
+
+    // Raw art for things like cowsay 
+    if config.contains('\n') {
+        let lines: Vec<String> = config.lines().map(|s| s.to_string()).collect();
+        return normalize_width(lines);
+    }
+
+    // load from file
+    if config.starts_with('/') || config.starts_with('~') || config.starts_with('.') {
+        return normalize_width(load_from_file(config));
+    }
+
+    // built-ins
+    match config {
+        "PACMAN_DEFAULT" => PACMAN_DEFAULT.iter().map(|s| s.to_string()).collect(),
+        "PACMAN_SMALL" => PACMAN_SMALL.iter().map(|s| s.to_string()).collect(),
+        _ => PACMAN_DEFAULT.iter().map(|s| s.to_string()).collect(),
+    }
+}
+
+fn normalize_width(lines: Vec<String>) -> Vec<String> {
+    let max_width = lines.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+    lines
+        .into_iter()
+        .map(|line| {
+            let padding = max_width - line.chars().count();
+            if padding > 0 {
+                format!("{}{}", line, " ".repeat(padding))
+            } else {
+                line
+            }
+        })
+        .collect()
+}
+
+fn load_from_file(path: &str) -> Vec<String> {
+    let expanded = if path.starts_with('~') {
+        if let Some(home) = dirs::home_dir() {
+            path.replacen('~', &home.to_string_lossy(), 1)
+        } else {
+            path.to_string()
+        }
+    } else {
+        path.to_string()
+    };
+
+    let path = Path::new(&expanded);
+
+    match fs::read_to_string(path) {
+        Ok(contents) => contents.lines().map(|s| s.to_string()).collect(),
+        Err(e) => {
+            eprintln!("Failed to load ASCII art from '{}': {}", expanded, e);
+            PACMAN_DEFAULT.iter().map(|s| s.to_string()).collect()
+        }
+    }
+}
 
 
-pub const PACMAN_ART: [&str; 16] = [
-    " ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  ", 
-    " ⠀⠀⠀⠀⠀⠀⠀⢀⣤⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  ",
-    " ⠀⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡄  ⠀⠀⠀⠀⠀⠀⠀⠀  ",
-    " ⠀⠀⠀⢠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠛⠻⣿⣿⣿⣿⣿⣿⣿⣿⣆⠀⠀ ⠀⠀⠀⠀⠀⠀  ",
-    " ⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⡿⠃⠀⠀⠀⠀⠀⠀⠀⠀  ",
-    " ⠀⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣤⣴⣿⣿⣿⣿⣿⡿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  ",
-    " ⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  ",
-    " ⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠋⠁⠀⠀⠀⣴⣿⣿⣿⣆⠀⠀⠀⣴⣿⣿⣿⣆  ",
-    " ⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⣄⠀⠀⠀⠀⢿⣿⣿⣿⠏⠀⠀⠀⢿⣿⣿⣿⠏  ",
-    " ⠸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣄⠀⠀⠉⠉⠁⠀ ⠀⠀⠀⠉⠉⠁⠀  ",
-    " ⠀⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  ",
-    " ⠀⠀⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡄⠀⠀⠀⠀⠀⠀⠀⠀  ",
-    " ⠀⠀⠀⠙⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀  ",
-    " ⠀⠀⠀⠀⠀⠛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  ",
-    " ⠀⠀⠀⠀⠀⠀⠀⠉⠻⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  ",
-    " ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠙⠛⠛⠛⠛⠛⠛⠋⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  ",
+// --- Defaults ---
+
+// Modified from https://emojicombos.com/pacman
+const PACMAN_DEFAULT: [&str; 16] = [
+    "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣤⣤⣤⣤⣤⣤⣤⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⠀⠀⠀⠀⠀⢀⣤⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡄  ⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⠀⢠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠛⠻⣿⣿⣿⣿⣿⣿⣿⣿⣆⠀⠀ ⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⡿⠃⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣤⣴⣿⣿⣿⣿⣿⡿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠋⠁⠀⠀⠀⣴⣿⣿⣿⣆⠀⠀⠀⣴⣿⣿⣿⣆",
+    "⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⣄⠀⠀⠀⠀⢿⣿⣿⣿⠏⠀⠀⠀⢿⣿⣿⣿⠏",
+    "⠸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣄⠀⠀⠉⠉⠁⠀ ⠀⠀⠀⠉⠉⠁⠀",
+    "⠀⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡄⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⠀⠙⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⠀⠀⠀⠛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⠀⠀⠀⠀⠀⠉⠻⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠙⠛⠛⠛⠛⠛⠛⠋⠉⠀⠀⠀⠀⠀ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+];
+
+// From pacman -v
+const PACMAN_SMALL: [&str; 4] = [
+    "  .--.                ",
+    " / _.-' .-.  .-.  .-. ",
+    " \\  '-. '-'  '-'  '-' ",
+    "  '--'                ",
 ];
