@@ -4,6 +4,8 @@ use alpm::Alpm;
 use chrono::{DateTime, FixedOffset, Local};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
+use std::os::unix::fs::symlink;
+use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
 
@@ -25,7 +27,7 @@ pub struct ManagerStats {
     pub pacman_version: Option<String>,
 }
 
-// --- Private data structures ---
+// --- Private helpers ---
 
 #[derive(Default)]
 struct UpgradeStats {
@@ -112,7 +114,123 @@ impl SyncProgress {
     }
 }
 
-// --- Private helper functions ---
+struct TempDb {
+    path: PathBuf,
+}
+
+impl TempDb {
+    /// Create a temp database directory with symlink to local db
+    fn new() -> Option<Self> {
+        let temp_path = PathBuf::from(format!("/tmp/pacfetch-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&temp_path);
+        fs::create_dir_all(temp_path.join("sync")).ok()?;
+        symlink("/var/lib/pacman/local", temp_path.join("local")).ok()?;
+
+        Some(Self { path: temp_path })
+    }
+
+    fn dbpath(&self) -> &str {
+        self.path.to_str().unwrap_or("/tmp/pacfetch")
+    }
+}
+
+impl Drop for TempDb {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
+}
+
+/// Sync databases to a temp location and return upgrade stats
+fn get_upgrade_sizes_fresh(spinner: Option<&ProgressBar>) -> UpgradeStats {
+    let fail = UpgradeStats::default();
+
+    let temp_db = match TempDb::new() {
+        Some(t) => t,
+        None => return fail,
+    };
+
+    let cmd = if util::is_root() {
+        format!(
+            "pacman -Sy --dbpath {} --logfile /dev/null",
+            temp_db.dbpath()
+        )
+    } else {
+        format!(
+            "fakeroot -- pacman -Sy --disable-sandbox-filesystem --dbpath {} --logfile /dev/null",
+            temp_db.dbpath()
+        )
+    };
+
+    let mut session = match expectrl::spawn(&cmd) {
+        Ok(s) => s,
+        Err(_) => return fail,
+    };
+
+    session.set_expect_timeout(Some(std::time::Duration::from_millis(100)));
+
+    let mut progress = SyncProgress::new();
+    if let Some(pb) = spinner {
+        pb.set_message(format!("Syncing databases: {}", progress.format()));
+    }
+
+    let mut line_buffer = String::new();
+    let mut sync_success = false;
+
+    loop {
+        match session.is_alive() {
+            Ok(true) => {}
+            Ok(false) => {
+                if !line_buffer.is_empty() {
+                    progress.update_from_line(&line_buffer);
+                    if let Some(pb) = spinner {
+                        pb.set_message(format!("Syncing databases: {}", progress.format()));
+                    }
+                }
+                sync_success = true;
+                break;
+            }
+            Err(_) => break,
+        }
+
+        let mut buf = [0u8; 1024];
+        match session.try_read(&mut buf) {
+            Ok(0) => continue,
+            Ok(n) => {
+                let chunk = String::from_utf8_lossy(&buf[..n]);
+
+                for ch in chunk.chars() {
+                    if ch == '\n' || ch == '\r' {
+                        if !line_buffer.is_empty() {
+                            progress.update_from_line(&line_buffer);
+                            if let Some(pb) = spinner {
+                                pb.set_message(format!("Syncing databases: {}", progress.format()));
+                            }
+                        }
+                        line_buffer.clear();
+                    } else {
+                        line_buffer.push(ch);
+                    }
+                }
+            }
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::WouldBlock | std::io::ErrorKind::Interrupted => {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                _ => break,
+            },
+        }
+    }
+
+    if !sync_success {
+        return fail;
+    }
+
+    if let Some(pb) = spinner {
+        pb.set_message("Gathering stats");
+    }
+
+    calculate_upgrade_stats(temp_db.dbpath())
+}
 
 fn get_installed_count() -> u32 {
     let output = Command::new("pacman").arg("-Q").output().unwrap();
@@ -163,10 +281,11 @@ fn get_seconds_since_update() -> Option<i64> {
     None
 }
 
-fn get_upgrade_sizes() -> UpgradeStats {
+/// Calculate upgrade stats from a db path
+fn calculate_upgrade_stats(dbpath: &str) -> UpgradeStats {
     let fail = UpgradeStats::default();
 
-    let mut alpm = match Alpm::new("/", "/var/lib/pacman") {
+    let mut alpm = match Alpm::new("/", dbpath) {
         Ok(a) => a,
         Err(_) => return fail,
     };
@@ -230,6 +349,10 @@ fn get_upgrade_sizes() -> UpgradeStats {
         net_upgrade_size_mb: Some(net_mib),
         package_count,
     }
+}
+
+fn get_upgrade_sizes() -> UpgradeStats {
+    calculate_upgrade_stats("/var/lib/pacman")
 }
 
 fn get_orphaned_packages() -> (Option<u32>, Option<f64>) {
@@ -373,7 +496,7 @@ fn run_pacman_pty(args: &[&str], filter: bool) -> Result<(), String> {
 
     let mut stdout = std::io::stdout();
     let mut line_buffer = String::new();
-    let mut raw_mode = false; 
+    let mut raw_mode = false;
 
     let mut process_exited = false;
 
@@ -533,12 +656,14 @@ pub fn sync_databases() -> Result<(), String> {
     run_pacman_sync()
 }
 
-pub fn upgrade_system(debug: bool, sync_first: bool) -> Result<(), String> {
+pub fn upgrade_system(
+    debug: bool,
+    sync_first: bool,
+    config: &crate::config::Config,
+) -> Result<(), String> {
     if !util::is_root() {
         return Err("you cannot perform this operation unless you are root.".to_string());
     }
-
-    let config = crate::config::Config::load();
 
     if sync_first {
         run_pacman_sync()?;
@@ -548,18 +673,19 @@ pub fn upgrade_system(debug: bool, sync_first: bool) -> Result<(), String> {
     } else {
         Some(util::create_spinner("Gathering stats"))
     };
-    let stats = get_stats(&config.display.stats, debug, spinner.as_ref());
+    // After -Sy sync, databases are fresh so no need for temp sync
+    let stats = get_stats(&config.display.stats, debug, false, spinner.as_ref());
     if let Some(s) = spinner {
         s.finish_and_clear();
     }
 
     if debug {
-        crate::ui::display_stats(&stats, &config);
+        crate::ui::display_stats(&stats, config);
         println!();
     } else {
-        if let Err(e) = crate::ui::display_stats_with_graphics(&stats, &config) {
+        if let Err(e) = crate::ui::display_stats_with_graphics(&stats, config) {
             eprintln!("error: {}", e);
-            crate::ui::display_stats(&stats, &config);
+            crate::ui::display_stats(&stats, config);
             println!();
         }
     }
@@ -567,7 +693,12 @@ pub fn upgrade_system(debug: bool, sync_first: bool) -> Result<(), String> {
     run_pacman_pty(&["-Su"], true)
 }
 
-pub fn get_stats(requested: &[StatId], debug: bool, spinner: Option<&ProgressBar>) -> ManagerStats {
+pub fn get_stats(
+    requested: &[StatId],
+    debug: bool,
+    fresh_sync: bool,
+    spinner: Option<&ProgressBar>,
+) -> ManagerStats {
     use crate::stats::{
         needs_mirror_health, needs_mirror_url, needs_orphan_stats, needs_upgrade_stats,
     };
@@ -577,7 +708,14 @@ pub fn get_stats(requested: &[StatId], debug: bool, spinner: Option<&ProgressBar
 
     if needs_upgrade_stats(requested) {
         let start = Instant::now();
-        let upgrade_stats = get_upgrade_sizes();
+        let upgrade_stats = if fresh_sync {
+            if debug {
+                eprintln!("Using fresh sync to temp database");
+            }
+            get_upgrade_sizes_fresh(spinner)
+        } else {
+            get_upgrade_sizes()
+        };
         stats.total_upgradable = upgrade_stats.package_count;
         stats.download_size_mb = upgrade_stats.download_size_mb;
         stats.total_installed_size_mb = upgrade_stats.installed_size_mb;

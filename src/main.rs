@@ -13,14 +13,18 @@ use config::Config;
 #[command(about = "A neofetch style wrapper for pacman's Syu/Sy/Su commands")]
 #[command(after_help = "\
 Commands:
+   no args      Show stats with sync to temp databases
   -Sy           Sync package databases
-  -Su           Upgrade system 
+  -Su           Upgrade system
   -Syu          Sync databases and upgrade system
 
 Options:
-  -d, --debug   Debug mode
-  -h, --help    Print help
-  -V, --version Print version")]
+      --ascii <ASCII>  Use custom ASCII art (path, built-in name, or NONE)
+      --local          Use local cached database (skip temp sync)
+  -d, --debug          Debug mode
+  -h, --help           Print help
+  -V, --version        Print version")]
+
 #[command(disable_help_flag = true)]
 #[command(disable_version_flag = true)]
 struct Cli {
@@ -36,13 +40,16 @@ struct Cli {
     #[arg(short, long, hide = true)]
     debug: bool,
 
+    #[arg(long, hide = true)]
+    local: bool,
+
     #[arg(short = 'h', long = "help", hide = true)]
     help: bool,
 
     #[arg(short = 'V', short_alias = 'v', long = "version", hide = true)]
     version: bool,
 
-    #[arg(long = "ascii")]
+    #[arg(long = "ascii", hide = true)]
     ascii: Option<String>,
 }
 
@@ -87,12 +94,15 @@ fn main() {
     // Handle system upgrade (-Su or -Syu)
     if cli.sync_op && cli.upgrade {
         let sync_first = cli.sync_db;
-        if let Err(e) = pacman::upgrade_system(cli.debug, sync_first) {
+        if let Err(e) = pacman::upgrade_system(cli.debug, sync_first, &config) {
             eprintln!("error: {}", e);
             std::process::exit(1);
         }
         std::process::exit(0);
     }
+
+    // Skip fresh sync if: --local flag, or after -Sy 
+    let fresh_sync = !cli.local && !(cli.sync_op && cli.sync_db);
 
     // Get stats
     let stats = if cli.sync_op && cli.sync_db {
@@ -101,15 +111,15 @@ fn main() {
             std::process::exit(1);
         }
         let spinner = util::create_spinner("Gathering stats");
-        let stats = pacman::get_stats(&config.display.stats, cli.debug, Some(&spinner));
+        let stats = pacman::get_stats(&config.display.stats, cli.debug, fresh_sync, Some(&spinner));
         spinner.finish_and_clear();
         stats
     } else if cli.debug {
         println!();
-        pacman::get_stats(&config.display.stats, cli.debug, None)
+        pacman::get_stats(&config.display.stats, cli.debug, fresh_sync, None)
     } else {
         let spinner = util::create_spinner("Gathering stats");
-        let stats = pacman::get_stats(&config.display.stats, cli.debug, Some(&spinner));
+        let stats = pacman::get_stats(&config.display.stats, cli.debug, fresh_sync, Some(&spinner));
         spinner.finish_and_clear();
         stats
     };
