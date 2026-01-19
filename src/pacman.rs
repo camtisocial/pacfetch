@@ -141,12 +141,15 @@ impl Drop for TempDb {
 }
 
 /// Sync databases to a temp location and return upgrade stats
-fn get_upgrade_sizes_fresh(spinner: Option<&ProgressBar>) -> UpgradeStats {
+fn get_upgrade_sizes_fresh(spinner: Option<&ProgressBar>, debug: bool) -> UpgradeStats {
     let fail = UpgradeStats::default();
 
     let temp_db = match TempDb::new() {
         Some(t) => t,
-        None => return fail,
+        None => {
+            util::log_error("Failed to create temp database directory", debug);
+            return fail;
+        }
     };
 
     let cmd = if util::is_root() {
@@ -163,7 +166,10 @@ fn get_upgrade_sizes_fresh(spinner: Option<&ProgressBar>) -> UpgradeStats {
 
     let mut session = match expectrl::spawn(&cmd) {
         Ok(s) => s,
-        Err(_) => return fail,
+        Err(e) => {
+            util::log_error(&format!("Failed to spawn pacman: {}", e), debug);
+            return fail;
+        }
     };
 
     session.set_expect_timeout(Some(std::time::Duration::from_millis(100)));
@@ -222,6 +228,7 @@ fn get_upgrade_sizes_fresh(spinner: Option<&ProgressBar>) -> UpgradeStats {
     }
 
     if !sync_success {
+        util::log_error("Database sync failed or was interrupted", debug);
         return fail;
     }
 
@@ -229,7 +236,7 @@ fn get_upgrade_sizes_fresh(spinner: Option<&ProgressBar>) -> UpgradeStats {
         pb.set_message("Gathering stats");
     }
 
-    calculate_upgrade_stats(temp_db.dbpath())
+    calculate_upgrade_stats(temp_db.dbpath(), debug)
 }
 
 fn get_installed_count() -> u32 {
@@ -282,29 +289,37 @@ fn get_seconds_since_update() -> Option<i64> {
 }
 
 /// Calculate upgrade stats from a db path
-fn calculate_upgrade_stats(dbpath: &str) -> UpgradeStats {
+fn calculate_upgrade_stats(dbpath: &str, debug: bool) -> UpgradeStats {
     let fail = UpgradeStats::default();
 
     let mut alpm = match Alpm::new("/", dbpath) {
         Ok(a) => a,
-        Err(_) => return fail,
+        Err(e) => {
+            util::log_error(&format!("Failed to initialize alpm: {}", e), debug);
+            return fail;
+        }
     };
 
     let _ = alpm.register_syncdb_mut("core", alpm::SigLevel::NONE);
     let _ = alpm.register_syncdb_mut("extra", alpm::SigLevel::NONE);
     let _ = alpm.register_syncdb_mut("multilib", alpm::SigLevel::NONE);
 
-    if alpm.trans_init(alpm::TransFlag::NO_LOCK).is_err() {
+    if let Err(e) = alpm.trans_init(alpm::TransFlag::NO_LOCK) {
+        util::log_error(&format!("Failed to init transaction: {}", e), debug);
         return fail;
     }
 
-    if alpm.sync_sysupgrade(false).is_err() {
+    if let Err(e) = alpm.sync_sysupgrade(false) {
+        let msg = format!("Failed to sync sysupgrade: {}", e);
         let _ = alpm.trans_release();
+        util::log_error(&msg, debug);
         return fail;
     }
 
-    if alpm.trans_prepare().is_err() {
+    let prepare_err = alpm.trans_prepare().err().map(|e| format!("{}", e));
+    if let Some(msg) = prepare_err {
         let _ = alpm.trans_release();
+        util::log_error(&format!("Failed to prepare transaction: {}", msg), debug);
         return fail;
     }
 
@@ -351,14 +366,17 @@ fn calculate_upgrade_stats(dbpath: &str) -> UpgradeStats {
     }
 }
 
-fn get_upgrade_sizes() -> UpgradeStats {
-    calculate_upgrade_stats("/var/lib/pacman")
+fn get_upgrade_sizes(debug: bool) -> UpgradeStats {
+    calculate_upgrade_stats("/var/lib/pacman", debug)
 }
 
-fn get_orphaned_packages() -> (Option<u32>, Option<f64>) {
+fn get_orphaned_packages(debug: bool) -> (Option<u32>, Option<f64>) {
     let alpm = match Alpm::new("/", "/var/lib/pacman") {
         Ok(a) => a,
-        Err(_) => return (None, None),
+        Err(e) => {
+            util::log_error(&format!("Failed to init alpm for orphan check: {}", e), debug);
+            return (None, None);
+        }
     };
 
     let localdb = alpm.localdb();
@@ -712,9 +730,9 @@ pub fn get_stats(
             if debug {
                 eprintln!("Using fresh sync to temp database");
             }
-            get_upgrade_sizes_fresh(spinner)
+            get_upgrade_sizes_fresh(spinner, debug)
         } else {
-            get_upgrade_sizes()
+            get_upgrade_sizes(debug)
         };
         stats.total_upgradable = upgrade_stats.package_count;
         stats.download_size_mb = upgrade_stats.download_size_mb;
@@ -729,7 +747,7 @@ pub fn get_stats(
 
     if needs_orphan_stats(requested) {
         let start = Instant::now();
-        let (orphaned_count, orphaned_size) = get_orphaned_packages();
+        let (orphaned_count, orphaned_size) = get_orphaned_packages(debug);
         stats.orphaned_packages = orphaned_count;
         stats.orphaned_size_mb = orphaned_size;
         if debug {

@@ -1,4 +1,8 @@
+use chrono::Local;
 use indicatif::{ProgressBar, ProgressStyle};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
 use std::time::Duration;
 
 /// Convert seconds to a human-readable duration string
@@ -69,5 +73,28 @@ pub fn is_root() -> bool {
     #[cfg(not(unix))]
     {
         false
+    }
+}
+
+fn log_path() -> Option<PathBuf> {
+    dirs::cache_dir().map(|p| p.join("pacfetch").join("pacfetch.log"))
+}
+
+/// Log errors
+pub fn log_error(msg: &str, debug: bool) {
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+    let log_line = format!("[{}] {}\n", timestamp, msg);
+
+    if debug {
+        eprint!("{}", log_line);
+    }
+
+    if let Some(path) = log_path() {
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
+            let _ = file.write_all(log_line.as_bytes());
+        }
     }
 }
