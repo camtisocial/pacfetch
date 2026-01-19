@@ -442,22 +442,63 @@ fn get_pacman_version() -> Option<String> {
     None
 }
 
-fn check_mirror_sync(mirror_url: &str) -> Option<f64> {
+fn check_mirror_sync(mirror_url: &str, debug: bool) -> Option<f64> {
     let lastsync_url = format!("{}/lastsync", mirror_url);
 
-    let client = reqwest::blocking::Client::builder()
+    let client = match reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
         .build()
-        .ok()?;
+    {
+        Ok(c) => c,
+        Err(e) => {
+            util::log_error(&format!("Failed to build HTTP client: {}", e), debug);
+            return None;
+        }
+    };
 
-    let response = client.get(&lastsync_url).send().ok()?;
+    // retry once
+    let mut last_error = String::new();
+    let response = (0..2).find_map(|attempt| {
+        match client.get(&lastsync_url).send() {
+            Ok(r) => Some(r),
+            Err(e) => {
+                last_error = format!("{}", e);
+                if attempt == 0 {
+                    util::log_error(&format!("Failed to fetch {} (retrying): {}", lastsync_url, e), debug);
+                }
+                None
+            }
+        }
+    });
+
+    let response = match response {
+        Some(r) => r,
+        None => {
+            util::log_error(&format!("Failed to fetch {} after retry: {}", lastsync_url, last_error), debug);
+            return None;
+        }
+    };
 
     if !response.status().is_success() {
+        util::log_error(&format!("Mirror returned status {}", response.status()), debug);
         return None;
     }
 
-    let timestamp_str = response.text().ok()?;
-    let timestamp: i64 = timestamp_str.trim().parse().ok()?;
+    let timestamp_str = match response.text() {
+        Ok(t) => t,
+        Err(e) => {
+            util::log_error(&format!("Failed to read response: {}", e), debug);
+            return None;
+        }
+    };
+
+    let timestamp: i64 = match timestamp_str.trim().parse() {
+        Ok(t) => t,
+        Err(e) => {
+            util::log_error(&format!("Failed to parse timestamp '{}': {}", timestamp_str.trim(), e), debug);
+            return None;
+        }
+    };
 
     let now = Local::now().timestamp();
     let age_seconds = now - timestamp;
@@ -770,7 +811,7 @@ pub fn get_stats(
             let handle = std::thread::spawn(move || {
                 mirror_url_clone
                     .as_ref()
-                    .and_then(|url| check_mirror_sync(url))
+                    .and_then(|url| check_mirror_sync(url, debug))
             });
             Some((handle, sync_start))
         } else {
