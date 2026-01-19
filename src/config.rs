@@ -43,6 +43,14 @@ impl Default for DisplayConfig {
 impl Config {
     /// Returns ~/.config/pacfetch/pacfetch.toml
     fn config_path() -> Option<PathBuf> {
+        // Check if running via sudo - use original user's config
+        if let Ok(sudo_user) = std::env::var("SUDO_USER") {
+            let user_home = PathBuf::from(format!("/home/{}", sudo_user));
+            if user_home.exists() {
+                return Some(user_home.join(".config/pacfetch/pacfetch.toml"));
+            }
+        }
+
         dirs::config_dir().map(|p| p.join("pacfetch").join("pacfetch.toml"))
     }
 

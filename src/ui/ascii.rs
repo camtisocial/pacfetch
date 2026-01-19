@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn get_art(config: &str) -> Vec<String> {
     if config == "NONE" {
@@ -42,11 +42,13 @@ fn normalize_width(lines: Vec<String>) -> Vec<String> {
 
 fn load_from_file(path: &str) -> Vec<String> {
     let expanded = if path.starts_with('~') {
-        if let Some(home) = dirs::home_dir() {
-            path.replacen('~', &home.to_string_lossy(), 1)
+        // When running via sudo, use the original user's home
+        let home = if let Ok(sudo_user) = std::env::var("SUDO_USER") {
+            PathBuf::from(format!("/home/{}", sudo_user))
         } else {
-            path.to_string()
-        }
+            dirs::home_dir().unwrap_or_default()
+        };
+        path.replacen('~', &home.to_string_lossy(), 1)
     } else {
         path.to_string()
     };
