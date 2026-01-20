@@ -4,8 +4,7 @@ use std::path::PathBuf;
 
 use crate::stats::{self, StatId};
 
-#[derive(Deserialize)]
-#[derive(Default)]
+#[derive(Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
     pub display: DisplayConfig,
@@ -23,7 +22,6 @@ pub struct DisplayConfig {
 fn default_ascii() -> String {
     "PACMAN_DEFAULT".to_string()
 }
-
 
 impl Default for DisplayConfig {
     fn default() -> Self {

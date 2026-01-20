@@ -38,7 +38,9 @@ pub fn display_stats_with_graphics(stats: &ManagerStats, config: &Config) -> io:
 
     // Add stats
     for stat_id in &config.display.stats {
-        let value = stat_id.format_value(stats).unwrap_or_else(|| "-".to_string());
+        let value = stat_id
+            .format_value(stats)
+            .unwrap_or_else(|| "-".to_string());
         let formatted_value = if *stat_id == StatId::MirrorHealth {
             match (&stats.mirror_url, stats.mirror_sync_age_hours) {
                 (Some(_), Some(age)) => format!("{} (last sync {:.1} hours)", "OK".green(), age),
@@ -48,13 +50,26 @@ pub fn display_stats_with_graphics(stats: &ManagerStats, config: &Config) -> io:
         } else {
             value
         };
-        stats_lines.push(format!("{}: {}", stat_id.label().bold().with(Yellow), formatted_value));
+        stats_lines.push(format!(
+            "{}: {}",
+            stat_id.label().bold().with(Yellow),
+            formatted_value
+        ));
     }
 
     stats_lines.push(String::new());
 
     // color palette rows
-    let colors = [Black, DarkRed, DarkGreen, DarkYellow, DarkBlue, DarkMagenta, DarkCyan, Grey];
+    let colors = [
+        Black,
+        DarkRed,
+        DarkGreen,
+        DarkYellow,
+        DarkBlue,
+        DarkMagenta,
+        DarkCyan,
+        Grey,
+    ];
     let bright_colors = [DarkGrey, Red, Green, Yellow, Blue, Magenta, Cyan, White];
 
     let mut color_row_1 = String::new();
@@ -77,7 +92,11 @@ pub fn display_stats_with_graphics(stats: &ManagerStats, config: &Config) -> io:
             println!("{}", line);
         }
     } else {
-        let art_width = ascii_art.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+        let art_width = ascii_art
+            .iter()
+            .map(|s| s.chars().count())
+            .max()
+            .unwrap_or(0);
         let padding = " ".repeat(art_width);
 
         let max_lines = ascii_art.len().max(stats_lines.len());

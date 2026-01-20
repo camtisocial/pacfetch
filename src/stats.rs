@@ -38,11 +38,11 @@ impl StatId {
         match self {
             StatId::Installed => Some(stats.total_installed.to_string()),
             StatId::Upgradable => Some(stats.total_upgradable.to_string()),
-            StatId::LastUpdate => stats
-                .days_since_last_update
-                .map(util::normalize_duration),
+            StatId::LastUpdate => stats.days_since_last_update.map(util::normalize_duration),
             StatId::DownloadSize => stats.download_size_mb.map(|s| format!("{:.2} MiB", s)),
-            StatId::InstalledSize => stats.total_installed_size_mb.map(|s| format!("{:.2} MiB", s)),
+            StatId::InstalledSize => stats
+                .total_installed_size_mb
+                .map(|s| format!("{:.2} MiB", s)),
             StatId::NetUpgradeSize => stats.net_upgrade_size_mb.map(|s| format!("{:.2} MiB", s)),
             StatId::OrphanedPackages => {
                 if let Some(count) = stats.orphaned_packages {
@@ -61,13 +61,11 @@ impl StatId {
             }
             StatId::CacheSize => stats.cache_size_mb.map(|s| format!("{:.2} MiB", s)),
             StatId::MirrorUrl => stats.mirror_url.clone(),
-            StatId::MirrorHealth => {
-                match (&stats.mirror_url, stats.mirror_sync_age_hours) {
-                    (Some(_), Some(age)) => Some(format!("OK (last sync {:.1} hours)", age)),
-                    (Some(_), None) => Some("Err - could not check sync status".to_string()),
-                    (None, _) => Some("Err - no mirror found".to_string()),
-                }
-            }
+            StatId::MirrorHealth => match (&stats.mirror_url, stats.mirror_sync_age_hours) {
+                (Some(_), Some(age)) => Some(format!("OK (last sync {:.1} hours)", age)),
+                (Some(_), None) => Some("Err - could not check sync status".to_string()),
+                (None, _) => Some("Err - no mirror found".to_string()),
+            },
         }
     }
 }

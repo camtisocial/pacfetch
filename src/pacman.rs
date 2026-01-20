@@ -97,20 +97,21 @@ impl SyncProgress {
             let last = parts[parts.len() - 1];
 
             if let Some(pct_str) = last.strip_suffix('%')
-                && let Ok(pct) = pct_str.parse::<u8>() {
-                    let state = if pct >= 100 {
-                        DbSyncState::Complete
-                    } else {
-                        DbSyncState::Syncing(pct)
-                    };
+                && let Ok(pct) = pct_str.parse::<u8>()
+            {
+                let state = if pct >= 100 {
+                    DbSyncState::Complete
+                } else {
+                    DbSyncState::Syncing(pct)
+                };
 
-                    match db_name {
-                        "core" => self.core = state,
-                        "extra" => self.extra = state,
-                        "multilib" => self.multilib = state,
-                        _ => {}
-                    }
+                match db_name {
+                    "core" => self.core = state,
+                    "extra" => self.extra = state,
+                    "multilib" => self.multilib = state,
+                    _ => {}
                 }
+            }
         }
     }
 }
@@ -371,7 +372,10 @@ fn get_orphaned_packages(debug: bool) -> (Option<u32>, Option<f64>) {
     let alpm = match Alpm::new("/", "/var/lib/pacman") {
         Ok(a) => a,
         Err(e) => {
-            util::log_error(&format!("Failed to init alpm for orphan check: {}", e), debug);
+            util::log_error(
+                &format!("Failed to init alpm for orphan check: {}", e),
+                debug,
+            );
             return (None, None);
         }
     };
@@ -382,10 +386,12 @@ fn get_orphaned_packages(debug: bool) -> (Option<u32>, Option<f64>) {
 
     for pkg in localdb.pkgs().into_iter() {
         if pkg.reason() == alpm::PackageReason::Depend
-            && pkg.required_by().is_empty() && pkg.optional_for().is_empty() {
-                count += 1;
-                total_size += pkg.isize();
-            }
+            && pkg.required_by().is_empty()
+            && pkg.optional_for().is_empty()
+        {
+            count += 1;
+            total_size += pkg.isize();
+        }
     }
 
     let size_mb = total_size as f64 / BYTES_PER_MIB;
@@ -428,11 +434,13 @@ fn get_pacman_version() -> Option<String> {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     for line in stdout.lines() {
-        if line.contains("Pacman v") && line.contains("libalpm v")
-            && let Some(version_start) = line.find("Pacman v") {
-                let version_str = &line[version_start..];
-                return Some(version_str.trim().to_string());
-            }
+        if line.contains("Pacman v")
+            && line.contains("libalpm v")
+            && let Some(version_start) = line.find("Pacman v")
+        {
+            let version_str = &line[version_start..];
+            return Some(version_str.trim().to_string());
+        }
     }
     None
 }
@@ -453,29 +461,39 @@ fn check_mirror_sync(mirror_url: &str, debug: bool) -> Option<f64> {
 
     // retry once
     let mut last_error = String::new();
-    let response = (0..2).find_map(|attempt| {
-        match client.get(&lastsync_url).send() {
-            Ok(r) => Some(r),
-            Err(e) => {
-                last_error = format!("{}", e);
-                if attempt == 0 {
-                    util::log_error(&format!("Failed to fetch {} (retrying): {}", lastsync_url, e), debug);
-                }
-                None
+    let response = (0..2).find_map(|attempt| match client.get(&lastsync_url).send() {
+        Ok(r) => Some(r),
+        Err(e) => {
+            last_error = format!("{}", e);
+            if attempt == 0 {
+                util::log_error(
+                    &format!("Failed to fetch {} (retrying): {}", lastsync_url, e),
+                    debug,
+                );
             }
+            None
         }
     });
 
     let response = match response {
         Some(r) => r,
         None => {
-            util::log_error(&format!("Failed to fetch {} after retry: {}", lastsync_url, last_error), debug);
+            util::log_error(
+                &format!(
+                    "Failed to fetch {} after retry: {}",
+                    lastsync_url, last_error
+                ),
+                debug,
+            );
             return None;
         }
     };
 
     if !response.status().is_success() {
-        util::log_error(&format!("Mirror returned status {}", response.status()), debug);
+        util::log_error(
+            &format!("Mirror returned status {}", response.status()),
+            debug,
+        );
         return None;
     }
 
@@ -490,7 +508,14 @@ fn check_mirror_sync(mirror_url: &str, debug: bool) -> Option<f64> {
     let timestamp: i64 = match timestamp_str.trim().parse() {
         Ok(t) => t,
         Err(e) => {
-            util::log_error(&format!("Failed to parse timestamp '{}': {}", timestamp_str.trim(), e), debug);
+            util::log_error(
+                &format!(
+                    "Failed to parse timestamp '{}': {}",
+                    timestamp_str.trim(),
+                    e
+                ),
+                debug,
+            );
             return None;
         }
     };

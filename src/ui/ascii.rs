@@ -6,7 +6,7 @@ pub fn get_art(config: &str) -> Vec<String> {
         return vec![];
     }
 
-    // Raw art for things like cowsay 
+    // Raw art for things like cowsay
     if config.contains('\n') {
         let lines: Vec<String> = config.lines().map(|s| s.to_string()).collect();
         return normalize_width(lines);
@@ -63,7 +63,6 @@ fn load_from_file(path: &str) -> Vec<String> {
         }
     }
 }
-
 
 // --- Defaults ---
 
