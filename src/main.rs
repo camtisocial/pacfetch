@@ -6,6 +6,18 @@ mod util;
 
 use clap::{CommandFactory, Parser};
 use config::Config;
+use std::fs;
+
+fn ensure_config_exists() {
+    let Some(config_path) = Config::config_path() else { return };
+
+    if !config_path.exists() {
+        if let Some(parent) = config_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = fs::write(&config_path, include_str!("../default_config.toml"));
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "pacfetch")]
@@ -60,6 +72,8 @@ fn print_error_and_help(msg: &str) -> ! {
 }
 
 fn main() {
+    ensure_config_exists();
+
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(_) => print_error_and_help("unrecognized flag"),

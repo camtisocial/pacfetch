@@ -34,7 +34,7 @@ impl Default for DisplayConfig {
 
 impl Config {
     /// Returns ~/.config/pacfetch/pacfetch.toml
-    fn config_path() -> Option<PathBuf> {
+    pub fn config_path() -> Option<PathBuf> {
         // Check if running via sudo - use original user's config
         if let Ok(sudo_user) = std::env::var("SUDO_USER") {
             let user_home = PathBuf::from(format!("/home/{}", sudo_user));
