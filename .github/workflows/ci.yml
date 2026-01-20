@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-20251228.0.475343
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pacman -Sy --noconfirm base-devel rustup
+          rustup default stable
+          rustup component add rustfmt clippy
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Run tests
+        run: |
+          BIN="./target/release/pacfetch"
+
+          echo "=== Flag tests ==="
+          $BIN -h
+          $BIN --help
+          $BIN -V
+          $BIN -v
+          $BIN --local
+
+          echo "=== Invalid flag tests ==="
+          ! $BIN -S
+          ! $BIN -y
+          ! $BIN -u
+          ! $BIN -yu
+          ! $BIN --badarg
+
+          echo "=== Root operation tests ==="
+          $BIN -Sy
+          echo "n" | $BIN -Su
+          echo "n" | $BIN -Syu
+
+          echo "All tests passed"
