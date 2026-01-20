@@ -24,7 +24,6 @@ Options:
   -d, --debug          Debug mode
   -h, --help           Print help
   -V, --version        Print version")]
-
 #[command(disable_help_flag = true)]
 #[command(disable_version_flag = true)]
 struct Cli {
@@ -101,8 +100,8 @@ fn main() {
         std::process::exit(0);
     }
 
-    // Skip fresh sync if: --local flag, or after -Sy 
-    let fresh_sync = !cli.local && !(cli.sync_op && cli.sync_db);
+    // Skip fresh sync if: --local flag, or after -Sy
+    let fresh_sync = !(cli.local || cli.sync_op && cli.sync_db);
 
     // Get stats
     let stats = if cli.sync_op && cli.sync_db {
@@ -127,9 +126,7 @@ fn main() {
     if cli.debug {
         ui::display_stats(&stats, &config);
         println!();
-    } else {
-        if let Err(e) = ui::display_stats_with_graphics(&stats, &config) {
-            eprintln!("error: {}", e);
-        }
+    } else if let Err(e) = ui::display_stats_with_graphics(&stats, &config) {
+        eprintln!("error: {}", e);
     }
 }

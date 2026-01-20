@@ -40,7 +40,7 @@ impl StatId {
             StatId::Upgradable => Some(stats.total_upgradable.to_string()),
             StatId::LastUpdate => stats
                 .days_since_last_update
-                .map(|s| util::normalize_duration(s)),
+                .map(util::normalize_duration),
             StatId::DownloadSize => stats.download_size_mb.map(|s| format!("{:.2} MiB", s)),
             StatId::InstalledSize => stats.total_installed_size_mb.map(|s| format!("{:.2} MiB", s)),
             StatId::NetUpgradeSize => stats.net_upgrade_size_mb.map(|s| format!("{:.2} MiB", s)),

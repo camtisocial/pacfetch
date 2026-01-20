@@ -9,6 +9,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
 
+const BYTES_PER_MIB: f64 = 1048576.0;
+
 // --- Public data structures ---
 
 #[derive(Debug, Default)]
@@ -94,8 +96,8 @@ impl SyncProgress {
             let db_name = parts[0];
             let last = parts[parts.len() - 1];
 
-            if let Some(pct_str) = last.strip_suffix('%') {
-                if let Ok(pct) = pct_str.parse::<u8>() {
+            if let Some(pct_str) = last.strip_suffix('%')
+                && let Ok(pct) = pct_str.parse::<u8>() {
                     let state = if pct >= 100 {
                         DbSyncState::Complete
                     } else {
@@ -109,7 +111,6 @@ impl SyncProgress {
                         _ => {}
                     }
                 }
-            }
         }
     }
 }
@@ -141,7 +142,7 @@ impl Drop for TempDb {
 }
 
 /// Sync databases to a temp location and return upgrade stats
-fn get_upgrade_sizes_fresh(spinner: Option<&ProgressBar>, debug: bool) -> UpgradeStats {
+fn calculate_upgrade_stats_with_sync(spinner: Option<&ProgressBar>, debug: bool) -> UpgradeStats {
     let fail = UpgradeStats::default();
 
     let temp_db = match TempDb::new() {
@@ -350,9 +351,9 @@ fn calculate_upgrade_stats(dbpath: &str, debug: bool) -> UpgradeStats {
 
     let _ = alpm.trans_release();
 
-    let download_mib = total_download_size as f64 / 1048576.0;
-    let installed_mib = total_installed_size as f64 / 1048576.0;
-    let mut net_mib = net_upgrade_size as f64 / 1048576.0;
+    let download_mib = total_download_size as f64 / BYTES_PER_MIB;
+    let installed_mib = total_installed_size as f64 / BYTES_PER_MIB;
+    let mut net_mib = net_upgrade_size as f64 / BYTES_PER_MIB;
 
     if net_mib > -0.01 && net_mib < 0.01 {
         net_mib = 0.0;
@@ -364,10 +365,6 @@ fn calculate_upgrade_stats(dbpath: &str, debug: bool) -> UpgradeStats {
         net_upgrade_size_mb: Some(net_mib),
         package_count,
     }
-}
-
-fn get_upgrade_sizes(debug: bool) -> UpgradeStats {
-    calculate_upgrade_stats("/var/lib/pacman", debug)
 }
 
 fn get_orphaned_packages(debug: bool) -> (Option<u32>, Option<f64>) {
@@ -384,15 +381,14 @@ fn get_orphaned_packages(debug: bool) -> (Option<u32>, Option<f64>) {
     let mut total_size: i64 = 0;
 
     for pkg in localdb.pkgs().into_iter() {
-        if pkg.reason() == alpm::PackageReason::Depend {
-            if pkg.required_by().len() == 0 && pkg.optional_for().len() == 0 {
+        if pkg.reason() == alpm::PackageReason::Depend
+            && pkg.required_by().is_empty() && pkg.optional_for().is_empty() {
                 count += 1;
                 total_size += pkg.isize();
             }
-        }
     }
 
-    let size_mb = total_size as f64 / 1048576.0;
+    let size_mb = total_size as f64 / BYTES_PER_MIB;
     (Some(count), Some(size_mb))
 }
 
@@ -407,7 +403,7 @@ fn get_cache_size() -> Option<f64> {
             .map(|m| m.len())
             .sum();
 
-        Some(total_size as f64 / 1048576.0)
+        Some(total_size as f64 / BYTES_PER_MIB)
     } else {
         None
     }
@@ -432,12 +428,11 @@ fn get_pacman_version() -> Option<String> {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     for line in stdout.lines() {
-        if line.contains("Pacman v") && line.contains("libalpm v") {
-            if let Some(version_start) = line.find("Pacman v") {
+        if line.contains("Pacman v") && line.contains("libalpm v")
+            && let Some(version_start) = line.find("Pacman v") {
                 let version_str = &line[version_start..];
                 return Some(version_str.trim().to_string());
             }
-        }
     }
     None
 }
@@ -741,12 +736,10 @@ pub fn upgrade_system(
     if debug {
         crate::ui::display_stats(&stats, config);
         println!();
-    } else {
-        if let Err(e) = crate::ui::display_stats_with_graphics(&stats, config) {
-            eprintln!("error: {}", e);
-            crate::ui::display_stats(&stats, config);
-            println!();
-        }
+    } else if let Err(e) = crate::ui::display_stats_with_graphics(&stats, config) {
+        eprintln!("error: {}", e);
+        crate::ui::display_stats(&stats, config);
+        println!();
     }
 
     run_pacman_pty(&["-Su"], true)
@@ -771,9 +764,9 @@ pub fn get_stats(
             if debug {
                 eprintln!("Using fresh sync to temp database");
             }
-            get_upgrade_sizes_fresh(spinner, debug)
+            calculate_upgrade_stats_with_sync(spinner, debug)
         } else {
-            get_upgrade_sizes(debug)
+            calculate_upgrade_stats("/var/lib/pacman", debug)
         };
         stats.total_upgradable = upgrade_stats.package_count;
         stats.download_size_mb = upgrade_stats.download_size_mb;
