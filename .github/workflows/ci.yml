@@ -22,10 +22,14 @@ jobs:
           rustup component add rustfmt clippy
 
       - name: Check formatting
+        id: fmt
         run: cargo fmt --check
+        continue-on-error: true
 
       - name: Clippy
+        id: clippy
         run: cargo clippy -- -D warnings
+        continue-on-error: true
 
       - name: Build
         run: cargo build --release
@@ -54,3 +58,9 @@ jobs:
           echo "n" | $BIN -Syu
 
           echo "All tests passed"
+
+      - name: Check for failures
+        if: steps.fmt.outcome == 'failure' || steps.clippy.outcome == 'failure'
+        run: |
+          echo "::error::Formatting or clippy checks failed"
+          exit 1
