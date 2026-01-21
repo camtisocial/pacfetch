@@ -620,7 +620,7 @@ fn run_pacman_pty(args: &[&str], filter: bool) -> Result<(), String> {
                         {
                             if should_print(&line_buffer, filter) {
                                 if line_buffer.contains("Proceed with installation") {
-                                    println!("\n\n");
+                                    println!("\n");
                                 }
                                 print!("{}", line_buffer);
                                 let _ = stdout.flush();
