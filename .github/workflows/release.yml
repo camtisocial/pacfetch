@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pacman -Sy --noconfirm base-devel rustup
+          rustup default stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Package
+        run: |
+          mkdir -p release
+          cp target/release/pacfetch release/
+          tar -czvf pacfetch-${{ github.ref_name }}-x86_64-linux.tar.gz -C release pacfetch
+
+      - name: Generate checksum
+        run: |
+          sha256sum pacfetch-${{ github.ref_name }}-x86_64-linux.tar.gz \
+            > pacfetch-${{ github.ref_name }}-x86_64-linux.sha256
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            pacfetch-${{ github.ref_name }}-x86_64-linux.tar.gz
+            pacfetch-${{ github.ref_name }}-x86_64-linux.sha256
+          generate_release_notes: true
