@@ -1,8 +1,13 @@
 [display]
 ## ascii options: "PACMAN_DEFAULT", "PACMAN_SMALL", "NONE", or a file path
-ascii = "PACMAN_DEFAULT"
-# ascii = "~/.config/pacfetch/ascii/example.txt"
 
+# ascii = "~/.config/pacfetch/ascii/example.txt"
+ascii = "PACMAN_DEFAULT"
+
+# Stats to display, entries can be removed or reordered
+
+# Options: installed, upgradable, last_update, download_size, installed_size net_upgrade_size, orphaned_packages,
+# cache_size, mirror_url, mirror_health
 stats = [
     "installed",
     "upgradable",
@@ -15,3 +20,4 @@ stats = [
     "mirror_url",
     "mirror_health",
 ]
+
