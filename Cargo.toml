@@ -7,6 +7,13 @@ license = "GPL-3.0"
 description = "a neofectch style wrapper for pacman's Syu/Sy/Su"
 repository = "https://github.com/camtisocial/pacfetch"
 readme = "README.md"
+include = [
+    "src/**",
+    "default_config.toml",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE*"
+]
 
 [dependencies]
 alpm = "5"
