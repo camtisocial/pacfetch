@@ -1,55 +1,49 @@
-<!-- Banner -->
+
 <p align="center">
   <img src="docs/assets/pacfetch_banner.png" alt="Project Banner" width="600" height="170" />
 </p>
 
-<!-- Badges -->
+
 <p align="center">
-  <a href="https://github.com/camtisocial/pacfetch/releases">
-    <img src="https://img.shields.io/github/v/release/camtisocial/pacfetch" alt="Release" />
-  </a>
-  <a href="https://github.com/camtisocial/pacfetch/actions/workflows/ci.yml">
-    <img src="https://github.com/camtisocial/pacfetch/actions/workflows/ci.yml/badge.svg" alt="CI" />
-  </a>
+  <img src="https://img.shields.io/github/v/release/camtisocial/pacfetch?" alt="Release" />
+  <img src="https://img.shields.io/crates/v/pacfetch.svg?color=yellow" alt="crates.io version" style="yellow">
+  <img src="https://img.shields.io/aur/version/pacfetch" alt="AUR version" />
+  <img src="https://github.com/camtisocial/pacfetch/actions/workflows/ci.yml/badge.svg" alt="CI" />
   <img src="https://img.shields.io/github/issues/camtisocial/pacfetch" />
-  <a href="https://aur.archlinux.org/packages/pacfetch">
-    <img src="https://img.shields.io/aur/version/pacfetch" alt="AUR version" />
-  </a>
   <img src="https://img.shields.io/badge/license-GPL-blue" />
 </p>
 
-<p align="center">Stat fetcher and sys upgrade wrapper for pacman</p>
+<p align="center">Neofetch style snapshot and sys update wrapper for the Arch linux package manager</p>
 
 ---
 
 ## Installation
 
-### AUR
+#### AUR
 ```
-wip
-```
-
-### Cargo
-```
-wip
+yay -S pacfetch
 ```
 
-### Build from source
+#### Cargo
+```
+cargo install pacfetch
+```
+
+#### Build from source
 ```
 git clone https://github.com/camtisocial/pacfetch
 cd pacfetch
-cargo build --release
+sudo make install
 ```
+<br>
 <br>
 
 ## Usage
-- Run without arguments to see a snapshot of pacman without modifying your local package databases
-- or use familiar pacman flags like -Syu to run pacfetch as a neofetch style wrapper
+
+Run `pacfetch -Syu` to sync and upgrade, or just `pacfetch` to see stats synced to a temp database [(no risk of partial upgrades)](https://wiki.archlinux.org/title/Pacman#Upgrading_packages)
+
 
 <br>
-
-
-## Flags and options
 
 
   | Flag | Description |
@@ -64,15 +58,58 @@ cargo build --release
   | `-V, --version` | Print version |
 
   <br>
+  <br>
 
+### Configuration & Logs
+
+- User config is automatically created on first run at `~/.config/pacfetch/pacfetch.toml`  
+- Error logs are written to `~/.cache/pacfetch/pacfetch.log`
+
+  <br>
+  <br>
+
+## Roadmap
+
+**Display customization overhaul**  
+>`colors` · `glyphs` · `themes` · `ANSI support` · `spinners/progress bars` · `stat aliases` 
+
+**Image rendering support**  
+>`kitty` · `sixel` · `iterm`
+
+**AUR helper integration**  
+>`yay` · `paru`
+
+**More options, more stats**  
+> `--packages` · `--mini` · `--image` · `--json` · `--aur` · `--news` · `--disk` 
+
+**Distro and terminal compatibility testing** 
+> `Manjaro` · `Endeavor`
+> 
+> ~`kitty`~ · `alacritty` · `konsole` · `gnome` · `ghostty`
+
+  <br>
+  <br>
+  
 ## Screenshots
 
 <p align="center">
-  <img src="docs/assets/pacfetch-screenshot.png" alt="Demo" width="1200" height="500" />
+  <img src="docs/assets/ghostty-test.png" alt="Demo" width="49%"  />
+  <img src="docs/assets/gnome-test.png" alt="Demo" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="Full demo" width="920" height="500" />
 </p>
 
+<br>
+<br>
 
-## Config
-```
-wip
-```
+## Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on reporting issues, requesting features, and submitting pull requests 
+
+
+  <br>
+  <br>
+  <br>
+  <br>
+
+
