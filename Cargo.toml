@@ -1,10 +1,12 @@
 [package]
 name = "pacfetch"
 version = "1.0.0"
-description = "a neofectch style wrapper for pacman's Syu/Sy/Su"
-license = "GPL-3.0"
 edition = "2024"
+authors = ["camtisocial thompsonca99@gmail.com"]
+license = "GPL-3.0"
+description = "a neofectch style wrapper for pacman's Syu/Sy/Su"
 repository = "https://github.com/camtisocial/pacfetch"
+readme = "README.md"
 
 [dependencies]
 alpm = "5"
