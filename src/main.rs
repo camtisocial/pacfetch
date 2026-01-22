@@ -9,7 +9,9 @@ use config::Config;
 use std::fs;
 
 fn ensure_config_exists() {
-    let Some(config_path) = Config::config_path() else { return };
+    let Some(config_path) = Config::config_path() else {
+        return;
+    };
 
     if !config_path.exists() {
         if let Some(parent) = config_path.parent() {
