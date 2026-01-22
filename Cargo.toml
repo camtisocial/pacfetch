@@ -1,7 +1,10 @@
 [package]
-name = "upkg"
-version = "0.1.0"
+name = "pacfetch"
+version = "1.0.0"
+description = "a neofectch style wrapper for pacman's Syu/Sy/Su"
+license = "GPL-3.0"
 edition = "2024"
+repository = "https://github.com/camtisocial/pacfetch"
 
 [dependencies]
 alpm = "5"
