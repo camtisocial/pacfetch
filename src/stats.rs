@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::pacman::ManagerStats;
+use crate::pacman::PacmanStats;
 use crate::util;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -34,7 +34,7 @@ impl StatId {
         }
     }
 
-    pub fn format_value(&self, stats: &ManagerStats) -> Option<String> {
+    pub fn format_value(&self, stats: &PacmanStats) -> Option<String> {
         match self {
             StatId::Installed => Some(stats.total_installed.to_string()),
             StatId::Upgradable => Some(stats.total_upgradable.to_string()),
@@ -68,21 +68,6 @@ impl StatId {
             },
         }
     }
-}
-
-pub fn default_stats() -> Vec<StatId> {
-    vec![
-        StatId::Installed,
-        StatId::Upgradable,
-        StatId::LastUpdate,
-        StatId::DownloadSize,
-        StatId::InstalledSize,
-        StatId::NetUpgradeSize,
-        StatId::OrphanedPackages,
-        StatId::CacheSize,
-        StatId::MirrorUrl,
-        StatId::MirrorHealth,
-    ]
 }
 
 // --- stat fetch request helpers ---

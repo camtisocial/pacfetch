@@ -1,12 +1,12 @@
 mod ascii;
 
 use crate::config::Config;
-use crate::pacman::ManagerStats;
+use crate::pacman::PacmanStats;
 use crate::stats::StatId;
 use std::io;
 use termimad::crossterm::style::{Color::*, Stylize};
 
-pub fn display_stats(stats: &ManagerStats, config: &Config) {
+pub fn display_stats(stats: &PacmanStats, config: &Config) {
     // Header
     if let Some(version) = &stats.pacman_version {
         let dashes = "-".repeat(version.len());
@@ -24,7 +24,7 @@ pub fn display_stats(stats: &ManagerStats, config: &Config) {
     }
 }
 
-pub fn display_stats_with_graphics(stats: &ManagerStats, config: &Config) -> io::Result<()> {
+pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::Result<()> {
     let ascii_art = ascii::get_art(&config.display.ascii);
 
     // Build stat lines from config

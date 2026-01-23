@@ -48,6 +48,7 @@ Run `pacfetch -Syu` to sync and upgrade, or just `pacfetch` to see stats synced 
 
   | Flag | Description |
   |------|-------------|
+  | `no args` | Show stats with sync to temp databases|
   | `-Sy` | Sync package databases, then display stats |
   | `-Su` | Display stats, then upgrade packages |
   | `-Syu` | Sync databases, display stats, then upgrade 

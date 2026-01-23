@@ -2,7 +2,7 @@ use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::stats::{self, StatId};
+use crate::stats::StatId;
 
 #[derive(Deserialize, Default)]
 pub struct Config {
@@ -12,7 +12,7 @@ pub struct Config {
 
 #[derive(Deserialize)]
 pub struct DisplayConfig {
-    #[serde(default = "stats::default_stats")]
+    #[serde(default = "default_stats")]
     pub stats: Vec<StatId>,
 
     #[serde(default = "default_ascii")]
@@ -23,10 +23,25 @@ fn default_ascii() -> String {
     "PACMAN_DEFAULT".to_string()
 }
 
+fn default_stats() -> Vec<StatId> {
+    vec![
+        StatId::Installed,
+        StatId::Upgradable,
+        StatId::LastUpdate,
+        StatId::DownloadSize,
+        StatId::InstalledSize,
+        StatId::NetUpgradeSize,
+        StatId::OrphanedPackages,
+        StatId::CacheSize,
+        StatId::MirrorUrl,
+        StatId::MirrorHealth,
+    ]
+}
+
 impl Default for DisplayConfig {
     fn default() -> Self {
         DisplayConfig {
-            stats: stats::default_stats(),
+            stats: default_stats(),
             ascii: default_ascii(),
         }
     }

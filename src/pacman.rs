@@ -14,7 +14,7 @@ const BYTES_PER_MIB: f64 = 1048576.0;
 // --- Public data structures ---
 
 #[derive(Debug, Default)]
-pub struct ManagerStats {
+pub struct PacmanStats {
     pub total_installed: u32,
     pub total_upgradable: u32,
     pub days_since_last_update: Option<i64>,
@@ -775,13 +775,13 @@ pub fn get_stats(
     debug: bool,
     fresh_sync: bool,
     spinner: Option<&ProgressBar>,
-) -> ManagerStats {
+) -> PacmanStats {
     use crate::stats::{
         needs_mirror_health, needs_mirror_url, needs_orphan_stats, needs_upgrade_stats,
     };
 
     let total_start = Instant::now();
-    let mut stats = ManagerStats::default();
+    let mut stats = PacmanStats::default();
 
     if needs_upgrade_stats(requested) {
         let start = Instant::now();
