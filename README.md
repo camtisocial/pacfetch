@@ -49,9 +49,9 @@ Run `pacfetch -Syu` to sync and upgrade, or just `pacfetch` to see stats synced 
   | Flag | Description |
   |------|-------------|
   | `no args` | Show stats with sync to temp databases|
+  | `-Syu` | Sync databases, display stats, then upgrade 
   | `-Sy` | Sync package databases, then display stats |
   | `-Su` | Display stats, then upgrade packages |
-  | `-Syu` | Sync databases, display stats, then upgrade 
   | `--ascii <PATH>` | Custom ASCII art file, built-in name, or `NONE` to disable |
   | `--local` | Use local cached database |
   | `-d, --debug` | Show verbose output and execution times per function |
