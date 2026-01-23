@@ -105,7 +105,7 @@ Run `pacfetch -Syu` to sync and upgrade, or just `pacfetch` to see stats synced 
 <br>
 
 ## Contributing
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on reporting issues, requesting features, and submitting pull requests 
+See [CONTRIBUTING.md](CONTRIBUTING.md) 
 
 
   <br>
