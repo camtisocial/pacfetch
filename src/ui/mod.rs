@@ -4,7 +4,7 @@ use crate::config::Config;
 use crate::pacman::PacmanStats;
 use crate::stats::StatId;
 use std::io;
-use termimad::crossterm::style::{Color::*, Stylize};
+use crossterm::style::{Color::*, Stylize};
 
 pub fn display_stats(stats: &PacmanStats, config: &Config) {
     // Header

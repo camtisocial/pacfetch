@@ -26,5 +26,4 @@ indicatif = "0.17"
 libc = "0.2"
 reqwest = { version = "0.12", features = ["blocking"] }
 serde = { version = "1", features = ["derive"] }
-termimad = "0.34.1"
 toml = "0.8"
