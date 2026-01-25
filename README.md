@@ -3,15 +3,30 @@
   <img src="docs/assets/pacfetch_banner.png" alt="Project Banner" width="600" height="170" />
 </p>
 
+<div align="center">
 
-<p align="center">
-  <img src="https://img.shields.io/github/v/release/camtisocial/pacfetch?" alt="Release" />
-  <img src="https://img.shields.io/crates/v/pacfetch.svg?color=yellow" alt="crates.io version" style="yellow">
-  <img src="https://img.shields.io/aur/version/pacfetch" alt="AUR version" />
-  <img src="https://github.com/camtisocial/pacfetch/actions/workflows/ci.yml/badge.svg" alt="CI" />
-  <img src="https://img.shields.io/github/issues/camtisocial/pacfetch" />
-  <img src="https://img.shields.io/badge/license-GPL-blue" />
-</p>
+<a href="https://github.com/camtisocial/pacfetch/releases">
+  <img src="https://img.shields.io/github/v/release/camtisocial/pacfetch?label=release&style=flat" />
+</a>
+<a href="https://github.com/camtisocial/pacfetch/issues">
+  <img src="https://img.shields.io/github/issues/camtisocial/pacfetch?label=issues&color=red&style=flat" />
+</a>
+<a href="https://github.com/camtisocial/pacfetch/actions/workflows/ci.yml">
+  <img src="https://img.shields.io/github/actions/workflow/status/camtisocial/pacfetch/ci.yml?label=ci&style=flat" />
+</a>
+<a href="https://crates.io/crates/pacfetch">
+  <img src="https://img.shields.io/crates/v/pacfetch?label=crates.io&color=orange&style=flat" />
+</a>
+<a href="https://aur.archlinux.org/packages/pacfetch">
+  <img src="https://img.shields.io/aur/version/pacfetch?label=aur&color=1793d1&style=flat" />
+</a>
+
+<a href="https://github.com/camtisocial/pacfetch/blob/main/LICENSE">
+  <img src="https://img.shields.io/github/license/camtisocial/pacfetch?label=license&color=blueviolet&style=flat" />
+</a>
+
+</div>
+
 
 <p align="center">Neofetch style snapshot and sys update wrapper for the Arch linux package manager</p>
 
@@ -72,7 +87,7 @@ Run `pacfetch -Syu` to sync and upgrade, or just `pacfetch` to see stats synced 
 ## Roadmap
 
 **Display customization overhaul**  
->`colors` · `glyphs` · `themes` · `ANSI support` · `spinners/progress bars` · `stat aliases` 
+>`colors` · `glyphs` · `more underlining options` · `true color support` · `spinners/progress bars` · `stat aliases` 
 
 **Image rendering support**  
 >`kitty` · `sixel` · `iterm`
@@ -81,7 +96,7 @@ Run `pacfetch -Syu` to sync and upgrade, or just `pacfetch` to see stats synced 
 >`yay` · `paru`
 
 **More options, more stats**  
-> `--packages` · `--mini` · `--image` · `--json` · `--aur` · `--news` · `--disk` 
+> `--packages` · `--mini` · `--image` · `--json` · `--aur` · `--news` · `--color` 
 
 **Distro and terminal compatibility testing** 
 > `Manjaro` · `Endeavor`
@@ -112,5 +127,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
   <br>
   <br>
   <br>
+
 
 
