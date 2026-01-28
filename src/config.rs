@@ -8,6 +8,26 @@ use crate::stats::StatId;
 pub struct Config {
     #[serde(default)]
     pub display: DisplayConfig,
+    #[serde(default)]
+    pub cache: CacheConfig,
+}
+
+#[derive(Deserialize)]
+pub struct CacheConfig {
+    #[serde(default = "default_ttl")]
+    pub ttl_minutes: u32,
+}
+
+fn default_ttl() -> u32 {
+    15
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        CacheConfig {
+            ttl_minutes: default_ttl(),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -59,6 +79,18 @@ impl Config {
         }
 
         dirs::config_dir().map(|p| p.join("pacfetch").join("pacfetch.toml"))
+    }
+
+    /// Returns ~/.cache/pacfetch/sync/
+    pub fn cache_dir() -> Option<PathBuf> {
+        if let Ok(sudo_user) = std::env::var("SUDO_USER") {
+            let user_home = PathBuf::from(format!("/home/{}", sudo_user));
+            if user_home.exists() {
+                return Some(user_home.join(".cache/pacfetch/sync"));
+            }
+        }
+
+        dirs::cache_dir().map(|p| p.join("pacfetch").join("sync"))
     }
 
     pub fn load() -> Self {
