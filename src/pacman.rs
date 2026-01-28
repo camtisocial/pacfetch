@@ -116,53 +116,196 @@ impl SyncProgress {
     }
 }
 
-struct TempDb {
+/// Copy modification time from src to dest using libc
+fn copy_mtime(src: &std::path::Path, dest: &std::path::Path) {
+    use std::os::unix::ffi::OsStrExt;
+    use std::os::unix::fs::MetadataExt;
+
+    let Ok(meta) = fs::metadata(src) else {
+        return;
+    };
+
+    let mtime = libc::timespec {
+        tv_sec: meta.mtime(),
+        tv_nsec: meta.mtime_nsec(),
+    };
+    let atime = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: libc::UTIME_OMIT,
+    };
+    let times = [atime, mtime];
+
+    let path_cstr = std::ffi::CString::new(dest.as_os_str().as_bytes()).ok();
+    if let Some(cstr) = path_cstr {
+        unsafe {
+            libc::utimensat(libc::AT_FDCWD, cstr.as_ptr(), times.as_ptr(), 0);
+        }
+    }
+}
+
+/// database cache at ~/.cache/pacfetch/
+struct DbCache {
     path: PathBuf,
 }
 
-impl TempDb {
-    /// Create a temp database directory with symlink to local db
+impl DbCache {
+    /// Get or create the persistent cache directory
     fn new() -> Option<Self> {
-        let temp_path = PathBuf::from(format!("/tmp/pacfetch-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&temp_path);
-        fs::create_dir_all(temp_path.join("sync")).ok()?;
-        symlink("/var/lib/pacman/local", temp_path.join("local")).ok()?;
+        let cache_dir = crate::config::Config::cache_dir()?;
+        let cache_path = cache_dir.parent()?; // ~/.cache/pacfetch/
 
-        Some(Self { path: temp_path })
+        fs::create_dir_all(&cache_dir).ok()?;
+
+        let local_link = cache_path.join("local");
+        if !local_link.exists() {
+            symlink("/var/lib/pacman/local", &local_link).ok()?;
+        }
+
+        Some(Self {
+            path: cache_path.to_path_buf(),
+        })
     }
 
     fn dbpath(&self) -> &str {
         self.path.to_str().unwrap_or("/tmp/pacfetch")
     }
-}
 
-impl Drop for TempDb {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.path);
+    fn sync_dir(&self) -> PathBuf {
+        self.path.join("sync")
+    }
+
+    fn is_fresh(&self, ttl_minutes: u32) -> bool {
+        if ttl_minutes == 0 {
+            return false;
+        }
+
+        let sync_dir = self.sync_dir();
+        let required_dbs = ["core.db", "extra.db", "multilib.db"];
+
+        for db in required_dbs {
+            let db_path = sync_dir.join(db);
+            let Ok(meta) = fs::metadata(&db_path) else {
+                return false;
+            };
+
+            let Ok(modified) = meta.modified() else {
+                return false;
+            };
+
+            let Ok(age) = modified.elapsed() else {
+                return false;
+            };
+
+            if age.as_secs() > (ttl_minutes as u64 * 60) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Copy system databases to cache
+    fn copy_system_dbs(&self) {
+        let sync_dir = self.sync_dir();
+        let source_sync = PathBuf::from("/var/lib/pacman/sync");
+
+        if !source_sync.exists() {
+            return;
+        }
+
+        if let Ok(entries) = fs::read_dir(&source_sync) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.extension().is_some_and(|ext| ext == "db")
+                    && let Some(filename) = path.file_name()
+                {
+                    let dest = sync_dir.join(filename);
+                    // Only copy if dest doesn't exist or is older than source
+                    let should_copy = match (fs::metadata(&path), fs::metadata(&dest)) {
+                        (Ok(src_meta), Ok(dest_meta)) => {
+                            src_meta.modified().ok() > dest_meta.modified().ok()
+                        }
+                        (Ok(_), Err(_)) => true,
+                        _ => false,
+                    };
+                    if should_copy && fs::copy(&path, &dest).is_ok() {
+                        copy_mtime(&path, &dest);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Update mtime
+    fn touch(&self) {
+        use std::os::unix::ffi::OsStrExt;
+
+        let now = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: libc::UTIME_NOW,
+        };
+        let times = [now, now];
+
+        let sync_dir = self.sync_dir();
+        for db in ["core.db", "extra.db", "multilib.db"] {
+            let db_path = sync_dir.join(db);
+            if let Ok(cstr) = std::ffi::CString::new(db_path.as_os_str().as_bytes()) {
+                unsafe {
+                    libc::utimensat(libc::AT_FDCWD, cstr.as_ptr(), times.as_ptr(), 0);
+                }
+            }
+        }
     }
 }
 
-/// Sync databases to a temp location and return upgrade stats
-fn calculate_upgrade_stats_with_sync(spinner: Option<&ProgressBar>, debug: bool) -> UpgradeStats {
+fn calculate_upgrade_stats_with_sync(
+    spinner: Option<&ProgressBar>,
+    debug: bool,
+    ttl_minutes: u32,
+) -> UpgradeStats {
     let fail = UpgradeStats::default();
 
-    let temp_db = match TempDb::new() {
-        Some(t) => t,
+    let cache = match DbCache::new() {
+        Some(c) => c,
         None => {
-            util::log_error("Failed to create temp database directory", debug);
+            util::log_error("Failed to create cache directory", debug);
             return fail;
         }
     };
 
+    // Check if cache is fresh
+    if cache.is_fresh(ttl_minutes) {
+        if debug {
+            eprintln!(
+                "  Database sync: SKIP (cache fresh, TTL {}min)",
+                ttl_minutes
+            );
+        }
+        if let Some(pb) = spinner {
+            pb.set_message("Using cached databases");
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            pb.set_message("Gathering stats");
+        }
+
+        let calc_start = Instant::now();
+        let stats = calculate_upgrade_stats(cache.dbpath(), debug);
+        if debug {
+            eprintln!("  Stats calculation: {:?}", calc_start.elapsed());
+        }
+        return stats;
+    }
+
+    // not fres
+    cache.copy_system_dbs();
+
+    let sync_start = Instant::now();
+
     let cmd = if util::is_root() {
-        format!(
-            "pacman -Sy --dbpath {} --logfile /dev/null",
-            temp_db.dbpath()
-        )
+        format!("pacman -Sy --dbpath {} --logfile /dev/null", cache.dbpath())
     } else {
         format!(
             "fakeroot -- pacman -Sy --disable-sandbox-filesystem --dbpath {} --logfile /dev/null",
-            temp_db.dbpath()
+            cache.dbpath()
         )
     };
 
@@ -234,11 +377,28 @@ fn calculate_upgrade_stats_with_sync(spinner: Option<&ProgressBar>, debug: bool)
         return fail;
     }
 
+    // Mark cache as fresh
+    cache.touch();
+
+    if debug {
+        eprintln!("  Database sync: {:?}", sync_start.elapsed());
+    }
+
     if let Some(pb) = spinner {
+        progress.core = DbSyncState::Complete;
+        progress.extra = DbSyncState::Complete;
+        progress.multilib = DbSyncState::Complete;
+        pb.set_message(format!("Syncing databases: {}", progress.format()));
+        std::thread::sleep(std::time::Duration::from_millis(100));
         pb.set_message("Gathering stats");
     }
 
-    calculate_upgrade_stats(temp_db.dbpath(), debug)
+    let calc_start = Instant::now();
+    let stats = calculate_upgrade_stats(cache.dbpath(), debug);
+    if debug {
+        eprintln!("  Stats calculation: {:?}", calc_start.elapsed());
+    }
+    stats
 }
 
 fn get_installed_count() -> u32 {
@@ -753,7 +913,13 @@ pub fn upgrade_system(
         Some(util::create_spinner("Gathering stats"))
     };
     // After -Sy sync, databases are fresh so no need for temp sync
-    let stats = get_stats(&config.display.stats, debug, false, spinner.as_ref());
+    let stats = get_stats(
+        &config.display.stats,
+        debug,
+        false,
+        config.cache.ttl_minutes,
+        spinner.as_ref(),
+    );
     if let Some(s) = spinner {
         s.finish_and_clear();
     }
@@ -774,6 +940,7 @@ pub fn get_stats(
     requested: &[StatId],
     debug: bool,
     fresh_sync: bool,
+    ttl_minutes: u32,
     spinner: Option<&ProgressBar>,
 ) -> PacmanStats {
     use crate::stats::{
@@ -787,9 +954,9 @@ pub fn get_stats(
         let start = Instant::now();
         let upgrade_stats = if fresh_sync {
             if debug {
-                eprintln!("Using fresh sync to temp database");
+                eprintln!("Using cached database (TTL {}min)", ttl_minutes);
             }
-            calculate_upgrade_stats_with_sync(spinner, debug)
+            calculate_upgrade_stats_with_sync(spinner, debug, ttl_minutes)
         } else {
             calculate_upgrade_stats("/var/lib/pacman", debug)
         };

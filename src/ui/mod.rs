@@ -3,8 +3,8 @@ mod ascii;
 use crate::config::Config;
 use crate::pacman::PacmanStats;
 use crate::stats::StatId;
-use std::io;
 use crossterm::style::{Color::*, Stylize};
+use std::io;
 
 pub fn display_stats(stats: &PacmanStats, config: &Config) {
     // Header

@@ -120,21 +120,34 @@ fn main() {
     let fresh_sync = !(cli.local || cli.sync_op && cli.sync_db);
 
     // Get stats
+    let ttl = config.cache.ttl_minutes;
     let stats = if cli.sync_op && cli.sync_db {
         if let Err(e) = pacman::sync_databases() {
             eprintln!("error: {}", e);
             std::process::exit(1);
         }
         let spinner = util::create_spinner("Gathering stats");
-        let stats = pacman::get_stats(&config.display.stats, cli.debug, fresh_sync, Some(&spinner));
+        let stats = pacman::get_stats(
+            &config.display.stats,
+            cli.debug,
+            fresh_sync,
+            ttl,
+            Some(&spinner),
+        );
         spinner.finish_and_clear();
         stats
     } else if cli.debug {
         println!();
-        pacman::get_stats(&config.display.stats, cli.debug, fresh_sync, None)
+        pacman::get_stats(&config.display.stats, cli.debug, fresh_sync, ttl, None)
     } else {
         let spinner = util::create_spinner("Gathering stats");
-        let stats = pacman::get_stats(&config.display.stats, cli.debug, fresh_sync, Some(&spinner));
+        let stats = pacman::get_stats(
+            &config.display.stats,
+            cli.debug,
+            fresh_sync,
+            ttl,
+            Some(&spinner),
+        );
         spinner.finish_and_clear();
         stats
     };

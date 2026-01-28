@@ -21,3 +21,6 @@ stats = [
     "mirror_health",
 ]
 
+[cache]
+# Set to 0 to always sync fresh
+ttl_minutes = 15
