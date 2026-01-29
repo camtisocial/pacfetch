@@ -37,10 +37,17 @@ pub struct DisplayConfig {
 
     #[serde(default = "default_ascii")]
     pub ascii: String,
+
+    #[serde(default = "default_ascii_color")]
+    pub ascii_color: String,
 }
 
 fn default_ascii() -> String {
     "PACMAN_DEFAULT".to_string()
+}
+
+fn default_ascii_color() -> String {
+    "yellow".to_string()
 }
 
 fn default_stats() -> Vec<StatId> {
@@ -63,6 +70,7 @@ impl Default for DisplayConfig {
         DisplayConfig {
             stats: default_stats(),
             ascii: default_ascii(),
+            ascii_color: default_ascii_color(),
         }
     }
 }
