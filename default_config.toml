@@ -3,6 +3,7 @@
 
 # ascii = "~/.config/pacfetch/ascii/example.txt"
 ascii = "PACMAN_DEFAULT"
+ascii_color = "yellow"
 
 # Stats to display, entries can be removed or reordered
 

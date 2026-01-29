@@ -1,5 +1,6 @@
 mod ascii;
 
+use crate::color::parse_color;
 use crate::config::Config;
 use crate::pacman::PacmanStats;
 use crate::stats::StatId;
@@ -26,6 +27,7 @@ pub fn display_stats(stats: &PacmanStats, config: &Config) {
 
 pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::Result<()> {
     let ascii_art = ascii::get_art(&config.display.ascii);
+    let ascii_color = parse_color(&config.display.ascii_color);
 
     // Build stat lines from config
     let mut stats_lines = vec![];
@@ -103,7 +105,11 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
         for i in 0..max_lines {
             let art_line = ascii_art.get(i).map(|s| s.as_str()).unwrap_or(&padding);
             let stat_line = stats_lines.get(i).map(|s| s.as_str()).unwrap_or("");
-            println!(" {}   {}", art_line.cyan(), stat_line);
+            let colored_art = match ascii_color {
+                Some(color) => format!("{}", art_line.with(color)),
+                None => art_line.to_string(),
+            };
+            println!(" {}   {}", colored_art, stat_line);
         }
     }
 
