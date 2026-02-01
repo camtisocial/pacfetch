@@ -18,9 +18,10 @@ pub fn display_stats(stats: &PacmanStats, config: &Config) {
     }
 
     // stats
+    let glyph = &config.display.glyph.glyph;
     for stat_id in &config.display.stats {
         if let Some(value) = stat_id.format_value(stats) {
-            println!("{}: {}", stat_id.label(), value);
+            println!("{}{}{}", stat_id.label(), glyph, value);
         }
     }
 }
@@ -39,6 +40,7 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
     }
 
     // Add stats
+    let glyph = &config.display.glyph.glyph;
     for stat_id in &config.display.stats {
         let value = stat_id
             .format_value(stats)
@@ -53,8 +55,9 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
             value
         };
         stats_lines.push(format!(
-            "{}: {}",
+            "{}{}{}",
             stat_id.label().bold().with(Yellow),
+            glyph,
             formatted_value
         ));
     }
