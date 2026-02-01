@@ -100,6 +100,29 @@ test_ok_piped() {
     fi
 }
 
+# Test output contains expected string
+test_output() {
+    local name="$1"
+    local pattern="$2"
+    shift 2
+    local cmd="$*"
+
+    echo -en "${YELLOW}$name${NC} ... "
+
+    local output
+    local exit_code
+    output=$("$@" 2>&1) && exit_code=0 || exit_code=$?
+
+    if [[ $exit_code -eq 0 ]] && echo "$output" | grep -q "$pattern"; then
+        echo -e "${GREEN}PASS${NC}"
+        PASS=$((PASS + 1))
+    else
+        echo -e "${RED}FAIL${NC}"
+        log_fail "$name" "$cmd" "Expected output to contain '$pattern'"$'\n'"Exit code: $exit_code"$'\n'"$output"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
 docker_run() {
     docker run --rm --privileged \
         -v "$BIN:/usr/local/bin/pacfetch:ro" \
@@ -124,6 +147,8 @@ test_err "Invalid: --badarg" "$BIN" --badarg
 test_err "No root: -Sy" "$BIN" -Sy
 test_err "No root: -Su" "$BIN" -Su
 test_err "No root: -Syu" "$BIN" -Syu
+
+test_output "Disk stat in output" "Disk (/)" "$BIN" --local
 
 # --- Docker tests ---
 echo -e "\n${YELLOW}=== DOCKER ===${NC}\n"
