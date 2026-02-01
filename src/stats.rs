@@ -16,7 +16,10 @@ pub enum StatId {
     CacheSize,
     MirrorUrl,
     MirrorHealth,
+    Disk,
 }
+
+const BYTES_PER_GIB: f64 = 1073741824.0;
 
 impl StatId {
     pub fn label(&self) -> &'static str {
@@ -31,6 +34,7 @@ impl StatId {
             StatId::CacheSize => "Package Cache",
             StatId::MirrorUrl => "Mirror URL",
             StatId::MirrorHealth => "Mirror Health",
+            StatId::Disk => "Disk",
         }
     }
 
@@ -66,6 +70,23 @@ impl StatId {
                 (Some(_), None) => Some("Err - could not check sync status".to_string()),
                 (None, _) => Some("Err - no mirror found".to_string()),
             },
+            StatId::Disk => {
+                if let (Some(used), Some(total)) = (stats.disk_used_bytes, stats.disk_total_bytes) {
+                    let used_gib = used as f64 / BYTES_PER_GIB;
+                    let total_gib = total as f64 / BYTES_PER_GIB;
+                    let pct = if total > 0 {
+                        (used as f64 / total as f64) * 100.0
+                    } else {
+                        0.0
+                    };
+                    Some(format!(
+                        "{:.2} GiB / {:.2} GiB ({:.0}%)",
+                        used_gib, total_gib, pct
+                    ))
+                } else {
+                    None
+                }
+            }
         }
     }
 }
@@ -93,4 +114,8 @@ pub fn needs_mirror_health(requested: &[StatId]) -> bool {
 
 pub fn needs_mirror_url(requested: &[StatId]) -> bool {
     requested.contains(&StatId::MirrorUrl) || needs_mirror_health(requested)
+}
+
+pub fn needs_disk_stat(requested: &[StatId]) -> bool {
+    requested.contains(&StatId::Disk)
 }

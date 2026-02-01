@@ -7,8 +7,8 @@ ascii_color = "yellow"
 
 # Stats to display, entries can be removed or reordered
 
-# Options: installed, upgradable, last_update, download_size, installed_size net_upgrade_size, orphaned_packages,
-# cache_size, mirror_url, mirror_health
+# Options: installed, upgradable, last_update, download_size, installed_size, net_upgrade_size, orphaned_packages,
+# cache_size, disk, mirror_url, mirror_health
 stats = [
     "installed",
     "upgradable",
@@ -16,6 +16,7 @@ stats = [
     "download_size",
     "installed_size",
     "net_upgrade_size",
+    "disk",
     "orphaned_packages",
     "cache_size",
     "mirror_url",
@@ -24,6 +25,9 @@ stats = [
 
 [display.glyph]
 glyph = ": "
+
+[disk]
+path = "/"
 
 [cache]
 # Set to 0 to always sync fresh
