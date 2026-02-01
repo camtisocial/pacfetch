@@ -32,16 +32,6 @@ impl Default for CacheConfig {
     }
 }
 
-#[derive(Deserialize, Default)]
-pub struct GlyphConfig {
-    #[serde(default = "default_glyph")]
-    pub glyph: String,
-}
-
-fn default_glyph() -> String {
-    ": ".to_string()
-}
-
 #[derive(Deserialize)]
 pub struct DiskConfig {
     #[serde(default = "default_disk_path")]
