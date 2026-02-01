@@ -18,9 +18,15 @@ pub fn display_stats(stats: &PacmanStats, config: &Config) {
     }
 
     // stats
+    let glyph = &config.display.glyph.glyph;
     for stat_id in &config.display.stats {
         if let Some(value) = stat_id.format_value(stats) {
-            println!("{}: {}", stat_id.label(), value);
+            let label = if *stat_id == StatId::Disk {
+                format!("Disk ({})", config.disk.path)
+            } else {
+                stat_id.label().to_string()
+            };
+            println!("{}{}{}", label, glyph, value);
         }
     }
 }
@@ -39,6 +45,7 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
     }
 
     // Add stats
+    let glyph = &config.display.glyph.glyph;
     for stat_id in &config.display.stats {
         let value = stat_id
             .format_value(stats)
@@ -49,12 +56,39 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                 (Some(_), None) => format!("{} - could not check sync status", "Err".red()),
                 (None, _) => format!("{} - no mirror found", "Err".red()),
             }
+        } else if *stat_id == StatId::Disk {
+            if let (Some(used), Some(total)) = (stats.disk_used_bytes, stats.disk_total_bytes) {
+                let used_gib = used as f64 / 1073741824.0;
+                let total_gib = total as f64 / 1073741824.0;
+                let pct = if total > 0 {
+                    (used as f64 / total as f64) * 100.0
+                } else {
+                    0.0
+                };
+                let pct_str = format!("({:.0}%)", pct);
+                let colored_pct = if pct > 90.0 {
+                    format!("{}", pct_str.red())
+                } else if pct >= 70.0 {
+                    format!("{}", pct_str.yellow())
+                } else {
+                    format!("{}", pct_str.green())
+                };
+                format!("{:.2} GiB / {:.2} GiB {}", used_gib, total_gib, colored_pct)
+            } else {
+                value
+            }
         } else {
             value
         };
+        let label = if *stat_id == StatId::Disk {
+            format!("Disk ({})", config.disk.path)
+        } else {
+            stat_id.label().to_string()
+        };
         stats_lines.push(format!(
-            "{}: {}",
-            stat_id.label().bold().with(Yellow),
+            "{}{}{}",
+            label.bold().with(Yellow),
+            glyph,
             formatted_value
         ));
     }

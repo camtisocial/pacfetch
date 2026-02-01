@@ -27,6 +27,8 @@ pub struct PacmanStats {
     pub mirror_url: Option<String>,
     pub mirror_sync_age_hours: Option<f64>,
     pub pacman_version: Option<String>,
+    pub disk_used_bytes: Option<u64>,
+    pub disk_total_bytes: Option<u64>,
 }
 
 // --- Private helpers ---
@@ -575,6 +577,26 @@ fn get_cache_size() -> Option<f64> {
     }
 }
 
+fn expand_tilde(path: &str) -> String {
+    if (path == "~" || path.starts_with("~/"))
+        && let Some(home) = dirs::home_dir()
+    {
+        return path.replacen('~', &home.to_string_lossy(), 1);
+    }
+    path.to_string()
+}
+
+fn get_disk_usage(path: &str) -> Option<(u64, u64)> {
+    use nix::sys::statvfs::statvfs;
+
+    let expanded = expand_tilde(path);
+    let stat = statvfs(expanded.as_str()).ok()?;
+    let frsize = stat.fragment_size() as u64;
+    let total = stat.blocks() * frsize;
+    let used = (stat.blocks() - stat.blocks_free()) * frsize;
+    Some((used, total))
+}
+
 fn get_mirror_url() -> Option<String> {
     let mirrorlist = fs::read_to_string("/etc/pacman.d/mirrorlist").ok()?;
 
@@ -917,7 +939,7 @@ pub fn upgrade_system(
         &config.display.stats,
         debug,
         false,
-        config.cache.ttl_minutes,
+        config,
         spinner.as_ref(),
     );
     if let Some(s) = spinner {
@@ -940,12 +962,14 @@ pub fn get_stats(
     requested: &[StatId],
     debug: bool,
     fresh_sync: bool,
-    ttl_minutes: u32,
+    config: &crate::config::Config,
     spinner: Option<&ProgressBar>,
 ) -> PacmanStats {
     use crate::stats::{
-        needs_mirror_health, needs_mirror_url, needs_orphan_stats, needs_upgrade_stats,
+        needs_disk_stat, needs_mirror_health, needs_mirror_url, needs_orphan_stats,
+        needs_upgrade_stats,
     };
+    let ttl_minutes = config.cache.ttl_minutes;
 
     let total_start = Instant::now();
     let mut stats = PacmanStats::default();
@@ -1035,6 +1059,19 @@ pub fn get_stats(
         if debug {
             eprintln!("Cache size: {:?}", start.elapsed());
         }
+    }
+
+    if needs_disk_stat(requested) {
+        let start = Instant::now();
+        if let Some((used, total)) = get_disk_usage(&config.disk.path) {
+            stats.disk_used_bytes = Some(used);
+            stats.disk_total_bytes = Some(total);
+        }
+        if debug {
+            eprintln!("Disk usage: {:?}", start.elapsed());
+        }
+    } else if debug {
+        eprintln!("Disk usage: SKIP");
     }
 
     let start = Instant::now();

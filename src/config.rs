@@ -10,6 +10,8 @@ pub struct Config {
     pub display: DisplayConfig,
     #[serde(default)]
     pub cache: CacheConfig,
+    #[serde(default)]
+    pub disk: DiskConfig,
 }
 
 #[derive(Deserialize)]
@@ -31,6 +33,34 @@ impl Default for CacheConfig {
 }
 
 #[derive(Deserialize)]
+pub struct DiskConfig {
+    #[serde(default = "default_disk_path")]
+    pub path: String,
+}
+
+fn default_disk_path() -> String {
+    "/".to_string()
+}
+
+impl Default for DiskConfig {
+    fn default() -> Self {
+        DiskConfig {
+            path: default_disk_path(),
+        }
+    }
+}
+
+#[derive(Deserialize, Default)]
+pub struct GlyphConfig {
+    #[serde(default = "default_glyph")]
+    pub glyph: String,
+}
+
+fn default_glyph() -> String {
+    ": ".to_string()
+}
+
+#[derive(Deserialize)]
 pub struct DisplayConfig {
     #[serde(default = "default_stats")]
     pub stats: Vec<StatId>,
@@ -40,6 +70,9 @@ pub struct DisplayConfig {
 
     #[serde(default = "default_ascii_color")]
     pub ascii_color: String,
+
+    #[serde(default)]
+    pub glyph: GlyphConfig,
 }
 
 fn default_ascii() -> String {
@@ -60,6 +93,7 @@ fn default_stats() -> Vec<StatId> {
         StatId::NetUpgradeSize,
         StatId::OrphanedPackages,
         StatId::CacheSize,
+        StatId::Disk,
         StatId::MirrorUrl,
         StatId::MirrorHealth,
     ]
@@ -71,6 +105,7 @@ impl Default for DisplayConfig {
             stats: default_stats(),
             ascii: default_ascii(),
             ascii_color: default_ascii_color(),
+            glyph: GlyphConfig::default(),
         }
     }
 }
