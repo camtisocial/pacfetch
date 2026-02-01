@@ -30,6 +30,16 @@ impl Default for CacheConfig {
     }
 }
 
+#[derive(Deserialize, Default)]
+pub struct GlyphConfig {
+    #[serde(default = "default_glyph")]
+    pub glyph: String,
+}
+
+fn default_glyph() -> String {
+    ": ".to_string()
+}
+
 #[derive(Deserialize)]
 pub struct DisplayConfig {
     #[serde(default = "default_stats")]
@@ -40,6 +50,9 @@ pub struct DisplayConfig {
 
     #[serde(default = "default_ascii_color")]
     pub ascii_color: String,
+
+    #[serde(default)]
+    pub glyph: GlyphConfig,
 }
 
 fn default_ascii() -> String {
@@ -71,6 +84,7 @@ impl Default for DisplayConfig {
             stats: default_stats(),
             ascii: default_ascii(),
             ascii_color: default_ascii_color(),
+            glyph: GlyphConfig::default(),
         }
     }
 }

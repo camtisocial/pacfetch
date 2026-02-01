@@ -22,6 +22,9 @@ stats = [
     "mirror_health",
 ]
 
+[display.glyph]
+glyph = ": "
+
 [cache]
 # Set to 0 to always sync fresh
 ttl_minutes = 15
