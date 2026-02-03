@@ -20,9 +20,47 @@ pub enum StatId {
     Disk,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum StatIdOrTitle {
+    Stat(StatId),
+    NamedTitle(String),
+    LegacyTitle,
+}
+
 const BYTES_PER_GIB: f64 = 1073741824.0;
 
 impl StatId {
+    /// Parse a stat string, handling both regular stats and title.{name} references
+    pub fn parse(s: &str) -> Result<StatIdOrTitle, String> {
+        if let Some(name) = s.strip_prefix("title.") {
+            if name.is_empty() {
+                return Err("title name cannot be empty".to_string());
+            }
+            return Ok(StatIdOrTitle::NamedTitle(name.to_string()));
+        }
+
+        // Handle legacy "title"
+        if s == "title" {
+            return Ok(StatIdOrTitle::LegacyTitle);
+        }
+
+        // Try to parse as regular StatId
+        match s {
+            "installed" => Ok(StatIdOrTitle::Stat(StatId::Installed)),
+            "upgradable" => Ok(StatIdOrTitle::Stat(StatId::Upgradable)),
+            "last_update" => Ok(StatIdOrTitle::Stat(StatId::LastUpdate)),
+            "download_size" => Ok(StatIdOrTitle::Stat(StatId::DownloadSize)),
+            "installed_size" => Ok(StatIdOrTitle::Stat(StatId::InstalledSize)),
+            "net_upgrade_size" => Ok(StatIdOrTitle::Stat(StatId::NetUpgradeSize)),
+            "orphaned_packages" => Ok(StatIdOrTitle::Stat(StatId::OrphanedPackages)),
+            "cache_size" => Ok(StatIdOrTitle::Stat(StatId::CacheSize)),
+            "mirror_url" => Ok(StatIdOrTitle::Stat(StatId::MirrorUrl)),
+            "mirror_health" => Ok(StatIdOrTitle::Stat(StatId::MirrorHealth)),
+            "disk" => Ok(StatIdOrTitle::Stat(StatId::Disk)),
+            _ => Err(format!("unknown stat: {}", s)),
+        }
+    }
+
     pub fn label(&self) -> &'static str {
         match self {
             StatId::Title => "",
