@@ -2,24 +2,44 @@ mod ascii;
 
 use crate::color::parse_color;
 use crate::config::Config;
+use crate::config::TitleConfig;
 use crate::pacman::PacmanStats;
 use crate::stats::StatId;
 use crossterm::style::{Color::*, Stylize};
 use std::io;
 
-pub fn display_stats(stats: &PacmanStats, config: &Config) {
-    // Header
-    if let Some(version) = &stats.pacman_version {
-        let dashes = "-".repeat(version.len());
-        println!("{}", version);
-        println!("{}", dashes);
-    } else {
-        println!("----- pacfetch -----");
+fn resolve_title_text(title_config: &TitleConfig, pacman_version: &Option<String>) -> String {
+    match title_config.text.as_str() {
+        "default" => pacman_version
+            .clone()
+            .unwrap_or_else(|| format!("pacfetch {}", env!("CARGO_PKG_VERSION"))),
+        "pacman_ver" => {
+            if let Some(full) = pacman_version {
+                if let Some(dash_pos) = full.find(" - ") {
+                    full[..dash_pos].trim().to_string()
+                } else {
+                    full.clone()
+                }
+            } else {
+                "Pacman".to_string()
+            }
+        }
+        "pacfetch_ver" => format!("pacfetch {}", env!("CARGO_PKG_VERSION")),
+        custom => custom.to_string(),
     }
+}
 
-    // stats
+pub fn display_stats(stats: &PacmanStats, config: &Config) {
     let glyph = &config.display.glyph.glyph;
     for stat_id in &config.display.stats {
+        if *stat_id == StatId::Title {
+            let title_text = resolve_title_text(&config.display.title, &stats.pacman_version);
+            let dashes = "-".repeat(title_text.len());
+            println!("{}", title_text);
+            println!("{}", dashes);
+            continue;
+        }
+
         if let Some(value) = stat_id.format_value(stats) {
             let label = if *stat_id == StatId::Disk {
                 format!("Disk ({})", config.disk.path)
@@ -38,15 +58,28 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
     // Build stat lines from config
     let mut stats_lines = vec![];
 
-    if let Some(version) = &stats.pacman_version {
-        let dashes = "-".repeat(version.len());
-        stats_lines.push(format!("{}", version.as_str().bold().with(Yellow)));
-        stats_lines.push(dashes);
-    }
-
-    // Add stats
     let glyph = &config.display.glyph.glyph;
     for stat_id in &config.display.stats {
+        if *stat_id == StatId::Title {
+            let title_text = resolve_title_text(&config.display.title, &stats.pacman_version);
+            let title_color = parse_color(&config.display.title.text_color);
+            let line_color = parse_color(&config.display.title.line_color);
+            let dashes = "-".repeat(title_text.len());
+
+            let colored_title = match title_color {
+                Some(color) => format!("{}", title_text.bold().with(color)),
+                None => format!("{}", title_text.bold()),
+            };
+            stats_lines.push(colored_title);
+
+            let colored_dashes = match line_color {
+                Some(color) => format!("{}", dashes.with(color)),
+                None => dashes,
+            };
+            stats_lines.push(colored_dashes);
+            continue;
+        }
+
         let value = stat_id
             .format_value(stats)
             .unwrap_or_else(|| "-".to_string());

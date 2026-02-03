@@ -61,6 +61,40 @@ fn default_glyph() -> String {
 }
 
 #[derive(Deserialize)]
+pub struct TitleConfig {
+    #[serde(default = "default_title_text")]
+    pub text: String,
+
+    #[serde(default = "default_title_text_color")]
+    pub text_color: String,
+
+    #[serde(default = "default_title_line_color")]
+    pub line_color: String,
+}
+
+fn default_title_text() -> String {
+    "default".to_string()
+}
+
+fn default_title_text_color() -> String {
+    "bright_yellow".to_string()
+}
+
+fn default_title_line_color() -> String {
+    "none".to_string()
+}
+
+impl Default for TitleConfig {
+    fn default() -> Self {
+        TitleConfig {
+            text: default_title_text(),
+            text_color: default_title_text_color(),
+            line_color: default_title_line_color(),
+        }
+    }
+}
+
+#[derive(Deserialize)]
 pub struct DisplayConfig {
     #[serde(default = "default_stats")]
     pub stats: Vec<StatId>,
@@ -73,6 +107,9 @@ pub struct DisplayConfig {
 
     #[serde(default)]
     pub glyph: GlyphConfig,
+
+    #[serde(default)]
+    pub title: TitleConfig,
 }
 
 fn default_ascii() -> String {
@@ -85,6 +122,7 @@ fn default_ascii_color() -> String {
 
 fn default_stats() -> Vec<StatId> {
     vec![
+        StatId::Title,
         StatId::Installed,
         StatId::Upgradable,
         StatId::LastUpdate,
@@ -106,6 +144,7 @@ impl Default for DisplayConfig {
             ascii: default_ascii(),
             ascii_color: default_ascii_color(),
             glyph: GlyphConfig::default(),
+            title: TitleConfig::default(),
         }
     }
 }
