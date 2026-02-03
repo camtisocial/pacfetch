@@ -1,8 +1,43 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
 use crate::stats::StatId;
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum TitleStyle {
+    Stacked,
+    Embedded,
+}
+
+impl Default for TitleStyle {
+    fn default() -> Self {
+        TitleStyle::Stacked
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum TitleWidth {
+    Named(String),  // "title" or "content"
+    Fixed(usize),
+}
+
+impl Default for TitleWidth {
+    fn default() -> Self {
+        TitleWidth::Named("title".to_string())
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum TitleAlign {
+    Left,
+    Center,
+    Right,
+}
 
 #[derive(Deserialize, Default)]
 pub struct Config {
@@ -60,7 +95,7 @@ fn default_glyph() -> String {
     ": ".to_string()
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TitleConfig {
     #[serde(default = "default_title_text")]
     pub text: String,
@@ -70,6 +105,24 @@ pub struct TitleConfig {
 
     #[serde(default = "default_title_line_color")]
     pub line_color: String,
+
+    #[serde(default)]
+    pub style: TitleStyle,
+
+    #[serde(default)]
+    pub width: TitleWidth,
+
+    #[serde(default)]
+    pub align: Option<TitleAlign>,  // None = use style default
+
+    #[serde(default = "default_line_char")]
+    pub line: String,
+
+    #[serde(default)]
+    pub left_cap: String,
+
+    #[serde(default)]
+    pub right_cap: String,
 }
 
 fn default_title_text() -> String {
@@ -84,12 +137,22 @@ fn default_title_line_color() -> String {
     "none".to_string()
 }
 
+fn default_line_char() -> String {
+    "-".to_string()
+}
+
 impl Default for TitleConfig {
     fn default() -> Self {
         TitleConfig {
             text: default_title_text(),
             text_color: default_title_text_color(),
             line_color: default_title_line_color(),
+            style: TitleStyle::default(),
+            width: TitleWidth::default(),
+            align: None,
+            line: default_line_char(),
+            left_cap: String::new(),
+            right_cap: String::new(),
         }
     }
 }
@@ -110,6 +173,9 @@ pub struct DisplayConfig {
 
     #[serde(default)]
     pub title: TitleConfig,
+
+    #[serde(default)]
+    pub titles: HashMap<String, TitleConfig>,
 }
 
 fn default_ascii() -> String {
@@ -145,6 +211,7 @@ impl Default for DisplayConfig {
             ascii_color: default_ascii_color(),
             glyph: GlyphConfig::default(),
             title: TitleConfig::default(),
+            titles: HashMap::new(),
         }
     }
 }
