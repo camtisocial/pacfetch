@@ -1,5 +1,6 @@
 mod color;
 mod config;
+mod log;
 mod pacman;
 mod stats;
 mod ui;
