@@ -6,6 +6,7 @@ use crate::util;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StatId {
+    Title,
     Installed,
     Upgradable,
     LastUpdate,
@@ -24,6 +25,7 @@ const BYTES_PER_GIB: f64 = 1073741824.0;
 impl StatId {
     pub fn label(&self) -> &'static str {
         match self {
+            StatId::Title => "",
             StatId::Installed => "Installed",
             StatId::Upgradable => "Upgradable",
             StatId::LastUpdate => "Last System Update",
@@ -40,6 +42,7 @@ impl StatId {
 
     pub fn format_value(&self, stats: &PacmanStats) -> Option<String> {
         match self {
+            StatId::Title => None,
             StatId::Installed => Some(stats.total_installed.to_string()),
             StatId::Upgradable => Some(stats.total_upgradable.to_string()),
             StatId::LastUpdate => stats.days_since_last_update.map(util::normalize_duration),
