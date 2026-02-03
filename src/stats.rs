@@ -133,30 +133,32 @@ impl StatId {
 }
 
 // --- stat fetch request helpers ---
-pub fn needs_upgrade_stats(requested: &[StatId]) -> bool {
+pub fn needs_upgrade_stats(requested: &[StatIdOrTitle]) -> bool {
     requested.iter().any(|s| {
         matches!(
             s,
-            StatId::Upgradable
-                | StatId::DownloadSize
-                | StatId::InstalledSize
-                | StatId::NetUpgradeSize
+            StatIdOrTitle::Stat(StatId::Upgradable)
+                | StatIdOrTitle::Stat(StatId::DownloadSize)
+                | StatIdOrTitle::Stat(StatId::InstalledSize)
+                | StatIdOrTitle::Stat(StatId::NetUpgradeSize)
         )
     })
 }
 
-pub fn needs_orphan_stats(requested: &[StatId]) -> bool {
-    requested.contains(&StatId::OrphanedPackages)
+pub fn needs_orphan_stats(requested: &[StatIdOrTitle]) -> bool {
+    requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::OrphanedPackages)))
 }
 
-pub fn needs_mirror_health(requested: &[StatId]) -> bool {
-    requested.contains(&StatId::MirrorHealth)
+pub fn needs_mirror_health(requested: &[StatIdOrTitle]) -> bool {
+    requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::MirrorHealth)))
 }
 
-pub fn needs_mirror_url(requested: &[StatId]) -> bool {
-    requested.contains(&StatId::MirrorUrl) || needs_mirror_health(requested)
+pub fn needs_mirror_url(requested: &[StatIdOrTitle]) -> bool {
+    requested.iter().any(|s| {
+        matches!(s, StatIdOrTitle::Stat(StatId::MirrorUrl)) || matches!(s, StatIdOrTitle::Stat(StatId::MirrorHealth))
+    })
 }
 
-pub fn needs_disk_stat(requested: &[StatId]) -> bool {
-    requested.contains(&StatId::Disk)
+pub fn needs_disk_stat(requested: &[StatIdOrTitle]) -> bool {
+    requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::Disk)))
 }
