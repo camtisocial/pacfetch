@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::stats::StatId;
+use crate::stats::{StatId, StatIdOrTitle};
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -160,7 +160,7 @@ impl Default for TitleConfig {
 #[derive(Deserialize)]
 pub struct DisplayConfig {
     #[serde(default = "default_stats")]
-    pub stats: Vec<StatId>,
+    pub stats: Vec<String>,
 
     #[serde(default = "default_ascii")]
     pub ascii: String,
@@ -186,20 +186,20 @@ fn default_ascii_color() -> String {
     "yellow".to_string()
 }
 
-fn default_stats() -> Vec<StatId> {
+fn default_stats() -> Vec<String> {
     vec![
-        StatId::Title,
-        StatId::Installed,
-        StatId::Upgradable,
-        StatId::LastUpdate,
-        StatId::DownloadSize,
-        StatId::InstalledSize,
-        StatId::NetUpgradeSize,
-        StatId::OrphanedPackages,
-        StatId::CacheSize,
-        StatId::Disk,
-        StatId::MirrorUrl,
-        StatId::MirrorHealth,
+        "title".to_string(),
+        "installed".to_string(),
+        "upgradable".to_string(),
+        "last_update".to_string(),
+        "download_size".to_string(),
+        "installed_size".to_string(),
+        "net_upgrade_size".to_string(),
+        "orphaned_packages".to_string(),
+        "cache_size".to_string(),
+        "disk".to_string(),
+        "mirror_url".to_string(),
+        "mirror_health".to_string(),
     ]
 }
 
@@ -213,6 +213,22 @@ impl Default for DisplayConfig {
             title: TitleConfig::default(),
             titles: HashMap::new(),
         }
+    }
+}
+
+impl DisplayConfig {
+    /// Parse stats strings into StatIdOrTitle values
+    pub fn parsed_stats(&self) -> Vec<StatIdOrTitle> {
+        self.stats
+            .iter()
+            .filter_map(|s| match StatId::parse(s) {
+                Ok(parsed) => Some(parsed),
+                Err(e) => {
+                    crate::log::warn(&e);
+                    None
+                }
+            })
+            .collect()
     }
 }
 
