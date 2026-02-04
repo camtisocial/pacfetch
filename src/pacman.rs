@@ -1,4 +1,7 @@
-use crate::stats::StatId;
+use crate::stats::{
+    needs_disk_stat, needs_mirror_health, needs_mirror_url, needs_orphan_stats,
+    needs_upgrade_stats, StatId, StatIdOrTitle,
+};
 use crate::util;
 use alpm::Alpm;
 use chrono::{DateTime, FixedOffset, Local};
@@ -936,7 +939,7 @@ pub fn upgrade_system(
     };
     // After -Sy sync, databases are fresh so no need for temp sync
     let stats = get_stats(
-        &config.display.stats,
+        &config.display.parsed_stats(),
         debug,
         false,
         config,
@@ -959,16 +962,12 @@ pub fn upgrade_system(
 }
 
 pub fn get_stats(
-    requested: &[StatId],
+    requested: &[StatIdOrTitle],
     debug: bool,
     fresh_sync: bool,
     config: &crate::config::Config,
     spinner: Option<&ProgressBar>,
 ) -> PacmanStats {
-    use crate::stats::{
-        needs_disk_stat, needs_mirror_health, needs_mirror_url, needs_orphan_stats,
-        needs_upgrade_stats,
-    };
     let ttl_minutes = config.cache.ttl_minutes;
 
     let total_start = Instant::now();
@@ -1037,7 +1036,7 @@ pub fn get_stats(
         None
     };
 
-    if requested.contains(&StatId::Installed) {
+    if requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::Installed))) {
         let start = Instant::now();
         stats.total_installed = get_installed_count();
         if debug {
@@ -1045,7 +1044,7 @@ pub fn get_stats(
         }
     }
 
-    if requested.contains(&StatId::LastUpdate) {
+    if requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::LastUpdate))) {
         let start = Instant::now();
         stats.days_since_last_update = get_seconds_since_update();
         if debug {
@@ -1053,7 +1052,7 @@ pub fn get_stats(
         }
     }
 
-    if requested.contains(&StatId::CacheSize) {
+    if requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::CacheSize))) {
         let start = Instant::now();
         stats.cache_size_mb = get_cache_size();
         if debug {
