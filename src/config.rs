@@ -5,23 +5,18 @@ use std::path::PathBuf;
 
 use crate::stats::{StatId, StatIdOrTitle};
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum TitleStyle {
+    #[default]
     Stacked,
     Embedded,
-}
-
-impl Default for TitleStyle {
-    fn default() -> Self {
-        TitleStyle::Stacked
-    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum TitleWidth {
-    Named(String),  // "title" or "content"
+    Named(String), // "title" or "content"
     Fixed(usize),
 }
 
@@ -113,7 +108,7 @@ pub struct TitleConfig {
     pub width: TitleWidth,
 
     #[serde(default)]
-    pub align: Option<TitleAlign>,  // None = use style default
+    pub align: Option<TitleAlign>, // None = use style default
 
     #[serde(default = "default_line_char")]
     pub line: String,

@@ -32,11 +32,9 @@ fn render_title(
 ) -> Vec<String> {
     let mut lines = Vec::new();
 
-    let align = config.align.clone().unwrap_or_else(|| {
-        match config.style {
-            TitleStyle::Stacked => TitleAlign::Left,
-            TitleStyle::Embedded => TitleAlign::Center,
-        }
+    let align = config.align.clone().unwrap_or(match config.style {
+        TitleStyle::Stacked => TitleAlign::Left,
+        TitleStyle::Embedded => TitleAlign::Center,
     });
 
     match config.style {
@@ -157,7 +155,9 @@ pub fn display_stats(stats: &PacmanStats, config: &Config) {
     for stat_ref in &parsed_stats {
         match stat_ref {
             StatIdOrTitle::LegacyTitle => {
-                crate::log::warn("Deprecated: [display.title] config. Use [display.titles.{name}] instead.");
+                crate::log::warn(
+                    "Deprecated: [display.title] config. Use [display.titles.{name}] instead.",
+                );
                 let title_text = resolve_title_text(&config.display.title, &stats.pacman_version);
                 let dashes = "-".repeat(title_text.chars().count());
                 println!("{}", title_text);
@@ -207,11 +207,17 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
     for stat_ref in &parsed_stats {
         match stat_ref {
             StatIdOrTitle::LegacyTitle => {
-                crate::log::warn("Deprecated: [display.title] config. Use [display.titles.{name}] instead.");
+                crate::log::warn(
+                    "Deprecated: [display.title] config. Use [display.titles.{name}] instead.",
+                );
                 let title_text = resolve_title_text(&config.display.title, &stats.pacman_version);
                 let min_width = title_min_width(&config.display.title, &title_text);
                 content_max_width = content_max_width.max(min_width);
-                title_entries.push(("__legacy__".to_string(), config.display.title.clone(), title_text));
+                title_entries.push((
+                    "__legacy__".to_string(),
+                    config.display.title.clone(),
+                    title_text,
+                ));
             }
             StatIdOrTitle::NamedTitle(name) => {
                 if let Some(title_config) = config.display.titles.get(name) {
@@ -224,7 +230,9 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                 }
             }
             StatIdOrTitle::Stat(stat_id) => {
-                let value = stat_id.format_value(stats).unwrap_or_else(|| "-".to_string());
+                let value = stat_id
+                    .format_value(stats)
+                    .unwrap_or_else(|| "-".to_string());
                 let label = if *stat_id == StatId::Disk {
                     format!("Disk ({})", config.disk.path)
                 } else {
@@ -258,7 +266,8 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
 
                     let title_color = parse_color(&title_config.text_color);
                     let line_color = parse_color(&title_config.line_color);
-                    let rendered = render_title(title_config, title_text, width, title_color, line_color);
+                    let rendered =
+                        render_title(title_config, title_text, width, title_color, line_color);
                     stats_lines.extend(rendered);
                 }
             }
@@ -277,7 +286,16 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
 
     // Add color palette rows
     stats_lines.push(String::new());
-    let colors = [Black, DarkRed, DarkGreen, DarkYellow, DarkBlue, DarkMagenta, DarkCyan, Grey];
+    let colors = [
+        Black,
+        DarkRed,
+        DarkGreen,
+        DarkYellow,
+        DarkBlue,
+        DarkMagenta,
+        DarkCyan,
+        Grey,
+    ];
     let bright_colors = [DarkGrey, Red, Green, Yellow, Blue, Magenta, Cyan, White];
     let mut color_row_1 = String::new();
     for color in &colors {
@@ -297,7 +315,11 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
             println!("{}", line);
         }
     } else {
-        let art_width = ascii_art.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+        let art_width = ascii_art
+            .iter()
+            .map(|s| s.chars().count())
+            .max()
+            .unwrap_or(0);
         let padding = " ".repeat(art_width);
         let max_lines = ascii_art.len().max(stats_lines.len());
         for i in 0..max_lines {
@@ -315,27 +337,49 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
 }
 
 // Helper to format a stat with colors
-fn format_stat_with_colors(stat_id: StatId, stats: &PacmanStats, config: &Config, glyph: &str) -> String {
+fn format_stat_with_colors(
+    stat_id: StatId,
+    stats: &PacmanStats,
+    config: &Config,
+    glyph: &str,
+) -> String {
     if stat_id == StatId::MirrorHealth {
         match (&stats.mirror_url, stats.mirror_sync_age_hours) {
             (Some(_), Some(age)) => {
                 let label = format!("{}{}", StatId::MirrorHealth.label(), glyph);
-                format!("{}{} (last sync {:.1} hours)", label.bold().with(Yellow), "OK".green(), age)
+                format!(
+                    "{}{} (last sync {:.1} hours)",
+                    label.bold().with(Yellow),
+                    "OK".green(),
+                    age
+                )
             }
             (Some(_), None) => {
                 let label = format!("{}{}", StatId::MirrorHealth.label(), glyph);
-                format!("{}{} - could not check sync status", label.bold().with(Yellow), "Err".red())
+                format!(
+                    "{}{} - could not check sync status",
+                    label.bold().with(Yellow),
+                    "Err".red()
+                )
             }
             (None, _) => {
                 let label = format!("{}{}", StatId::MirrorHealth.label(), glyph);
-                format!("{}{} - no mirror found", label.bold().with(Yellow), "Err".red())
+                format!(
+                    "{}{} - no mirror found",
+                    label.bold().with(Yellow),
+                    "Err".red()
+                )
             }
         }
     } else if stat_id == StatId::Disk {
         if let (Some(used), Some(total)) = (stats.disk_used_bytes, stats.disk_total_bytes) {
             let used_gib = used as f64 / 1073741824.0;
             let total_gib = total as f64 / 1073741824.0;
-            let pct = if total > 0 { (used as f64 / total as f64) * 100.0 } else { 0.0 };
+            let pct = if total > 0 {
+                (used as f64 / total as f64) * 100.0
+            } else {
+                0.0
+            };
             let pct_str = format!("({:.0}%)", pct);
             let colored_pct = if pct > 90.0 {
                 format!("{}", pct_str.red())
@@ -345,14 +389,22 @@ fn format_stat_with_colors(stat_id: StatId, stats: &PacmanStats, config: &Config
                 format!("{}", pct_str.green())
             };
             let label = format!("Disk ({}){}", config.disk.path, glyph);
-            format!("{}{:.2} GiB / {:.2} GiB {}", label.bold().with(Yellow), used_gib, total_gib, colored_pct)
+            format!(
+                "{}{:.2} GiB / {:.2} GiB {}",
+                label.bold().with(Yellow),
+                used_gib,
+                total_gib,
+                colored_pct
+            )
         } else {
             let label = format!("Disk ({}){}", config.disk.path, glyph);
             format!("{}-", label.bold().with(Yellow))
         }
     } else {
         let label = format!("{}{}", stat_id.label(), glyph);
-        let value = stat_id.format_value(stats).unwrap_or_else(|| "-".to_string());
+        let value = stat_id
+            .format_value(stats)
+            .unwrap_or_else(|| "-".to_string());
         format!("{}{}", label.bold().with(Yellow), value)
     }
 }

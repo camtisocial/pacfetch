@@ -146,19 +146,26 @@ pub fn needs_upgrade_stats(requested: &[StatIdOrTitle]) -> bool {
 }
 
 pub fn needs_orphan_stats(requested: &[StatIdOrTitle]) -> bool {
-    requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::OrphanedPackages)))
+    requested
+        .iter()
+        .any(|s| matches!(s, StatIdOrTitle::Stat(StatId::OrphanedPackages)))
 }
 
 pub fn needs_mirror_health(requested: &[StatIdOrTitle]) -> bool {
-    requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::MirrorHealth)))
+    requested
+        .iter()
+        .any(|s| matches!(s, StatIdOrTitle::Stat(StatId::MirrorHealth)))
 }
 
 pub fn needs_mirror_url(requested: &[StatIdOrTitle]) -> bool {
     requested.iter().any(|s| {
-        matches!(s, StatIdOrTitle::Stat(StatId::MirrorUrl)) || matches!(s, StatIdOrTitle::Stat(StatId::MirrorHealth))
+        matches!(s, StatIdOrTitle::Stat(StatId::MirrorUrl))
+            || matches!(s, StatIdOrTitle::Stat(StatId::MirrorHealth))
     })
 }
 
 pub fn needs_disk_stat(requested: &[StatIdOrTitle]) -> bool {
-    requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::Disk)))
+    requested
+        .iter()
+        .any(|s| matches!(s, StatIdOrTitle::Stat(StatId::Disk)))
 }
