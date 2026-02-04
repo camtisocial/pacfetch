@@ -1,16 +1,14 @@
 ################### DISPLAY ####################
 [display]
 ## ascii options: "PACMAN_DEFAULT", "PACMAN_SMALL", "NONE", or a file path
-
-# ascii = "~/.config/pacfetch/ascii/example.txt"
 ascii = "PACMAN_DEFAULT"
 ascii_color = "yellow"
 
-
-# Options: title, installed, upgradable, last_update, download_size, installed_size, net_upgrade_size,
-# orphaned_packages, cache_size, disk, mirror_url, mirror_health
+# Stats to display. Use "title.{name}" to reference titles defined below.
+# Available stats: installed, upgradable, last_update, download_size, installed_size,
+# net_upgrade_size, orphaned_packages, cache_size, disk, mirror_url, mirror_health
 stats = [
-    "title",
+    "title.header",
     "installed",
     "upgradable",
     "last_update",
@@ -24,22 +22,53 @@ stats = [
     "mirror_health",
 ]
 
-
-[display.title]
-# Title text: "default", "pacman_ver", "pacfetch_ver", custom string
-text = "default"
-text_color = "bright_yellow"
-line_color = "none"
-
 [display.glyph]
 glyph = ": "
 
+################### TITLES ####################
+# Define named titles under [display.titles.{name}]
+# Reference them in the stats array as "title.{name}"
+#
+# Options:
+#   text        = "default" | "pacman_ver" | "pacfetch_ver" | "" | custom string
+#   text_color  = color name, hex (#RRGGBB), or "none"
+#   line_color  = color name, hex (#RRGGBB), or "none"
+#   style       = "stacked" (text above line) | "embedded" (text within line)
+#   width       = "title" | "content" | integer
+#   align       = "left" | "center" | "right" (default: left for stacked, center for embedded)
+#   line        = line character(s), can be multi-char pattern like "=-"
+#   left_cap    = left cap character(s) for embedded style
+#   right_cap   = right cap character(s) for embedded style
 
+[display.titles.header]
+text = "default"
+text_color = "bright_yellow"
+line_color = "none"
+style = "stacked"
+width = "title"
+line = "-"
+
+# Example: divider with no text
+# [display.titles.divider]
+# text = ""
+# style = "embedded"
+# width = "content"
+# line = "─"
+# left_cap = "├"
+# right_cap = "┤"
+
+# Example: footer with custom text
+# [display.titles.footer]
+# text = "pacfetch"
+# style = "embedded"
+# width = "content"
+# line = "─"
+# left_cap = "╰"
+# right_cap = "╯"
 
 ################### DISK ####################
 [disk]
 path = "/"
-
 
 ################### CACHE ####################
 [cache]
