@@ -19,11 +19,7 @@ pub fn warn(msg: &str) {
         let _ = fs::create_dir_all(parent);
     }
 
-    let Ok(mut file) = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-    else {
+    let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) else {
         return;
     };
 

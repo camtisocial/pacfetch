@@ -1,6 +1,6 @@
 use crate::stats::{
-    needs_disk_stat, needs_mirror_health, needs_mirror_url, needs_orphan_stats,
-    needs_upgrade_stats, StatId, StatIdOrTitle,
+    StatId, StatIdOrTitle, needs_disk_stat, needs_mirror_health, needs_mirror_url,
+    needs_orphan_stats, needs_upgrade_stats,
 };
 use crate::util;
 use alpm::Alpm;
@@ -1036,7 +1036,10 @@ pub fn get_stats(
         None
     };
 
-    if requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::Installed))) {
+    if requested
+        .iter()
+        .any(|s| matches!(s, StatIdOrTitle::Stat(StatId::Installed)))
+    {
         let start = Instant::now();
         stats.total_installed = get_installed_count();
         if debug {
@@ -1044,7 +1047,10 @@ pub fn get_stats(
         }
     }
 
-    if requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::LastUpdate))) {
+    if requested
+        .iter()
+        .any(|s| matches!(s, StatIdOrTitle::Stat(StatId::LastUpdate)))
+    {
         let start = Instant::now();
         stats.days_since_last_update = get_seconds_since_update();
         if debug {
@@ -1052,7 +1058,10 @@ pub fn get_stats(
         }
     }
 
-    if requested.iter().any(|s| matches!(s, StatIdOrTitle::Stat(StatId::CacheSize))) {
+    if requested
+        .iter()
+        .any(|s| matches!(s, StatIdOrTitle::Stat(StatId::CacheSize)))
+    {
         let start = Instant::now();
         stats.cache_size_mb = get_cache_size();
         if debug {
