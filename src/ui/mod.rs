@@ -152,22 +152,43 @@ pub fn resolve_title_text(title_config: &TitleConfig, pacman_version: &Option<St
 
 pub fn display_stats(stats: &PacmanStats, config: &Config) {
     let glyph = &config.display.glyph.glyph;
-    for stat_id in &config.display.stats {
-        if *stat_id == StatId::Title {
-            let title_text = resolve_title_text(&config.display.title, &stats.pacman_version);
-            let dashes = "-".repeat(title_text.len());
-            println!("{}", title_text);
-            println!("{}", dashes);
-            continue;
-        }
+    let parsed_stats = config.display.parsed_stats();
 
-        if let Some(value) = stat_id.format_value(stats) {
-            let label = if *stat_id == StatId::Disk {
-                format!("Disk ({})", config.disk.path)
-            } else {
-                stat_id.label().to_string()
-            };
-            println!("{}{}{}", label, glyph, value);
+    for stat_ref in &parsed_stats {
+        match stat_ref {
+            StatIdOrTitle::LegacyTitle => {
+                crate::log::warn("Deprecated: [display.title] config. Use [display.titles.{name}] instead.");
+                let title_text = resolve_title_text(&config.display.title, &stats.pacman_version);
+                let dashes = "-".repeat(title_text.chars().count());
+                println!("{}", title_text);
+                println!("{}", dashes);
+            }
+            StatIdOrTitle::NamedTitle(name) => {
+                if let Some(title_config) = config.display.titles.get(name) {
+                    let title_text = resolve_title_text(title_config, &stats.pacman_version);
+                    let width = match &title_config.width {
+                        TitleWidth::Named(s) if s == "title" => title_text.chars().count().max(1),
+                        TitleWidth::Named(_) => title_text.chars().count().max(1),
+                        TitleWidth::Fixed(w) => *w,
+                    };
+                    let title_lines = render_title(title_config, &title_text, width, None, None);
+                    for line in title_lines {
+                        println!("{}", line);
+                    }
+                } else {
+                    crate::log::warn(&format!("Title '{}' not found in config", name));
+                }
+            }
+            StatIdOrTitle::Stat(stat_id) => {
+                if let Some(value) = stat_id.format_value(stats) {
+                    let label = if *stat_id == StatId::Disk {
+                        format!("Disk ({})", config.disk.path)
+                    } else {
+                        stat_id.label().to_string()
+                    };
+                    println!("{}{}{}", label, glyph, value);
+                }
+            }
         }
     }
 }
