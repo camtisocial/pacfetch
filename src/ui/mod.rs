@@ -1,15 +1,136 @@
 mod ascii;
 
 use crate::color::parse_color;
-use crate::config::Config;
-use crate::config::TitleConfig;
+use crate::config::{Config, TitleAlign, TitleConfig, TitleStyle, TitleWidth};
 use crate::pacman::PacmanStats;
-use crate::stats::StatId;
+use crate::stats::{StatId, StatIdOrTitle};
 use crossterm::style::{Color::*, Stylize};
 use std::io;
 
-fn resolve_title_text(title_config: &TitleConfig, pacman_version: &Option<String>) -> String {
+/// Calculate the minimum width needed for a title based on its style
+fn title_min_width(config: &TitleConfig, text: &str) -> usize {
+    match config.style {
+        TitleStyle::Stacked => text.chars().count(),
+        TitleStyle::Embedded => {
+            let caps_width = config.left_cap.chars().count() + config.right_cap.chars().count();
+            if text.is_empty() {
+                caps_width + 1
+            } else {
+                caps_width + 2 + text.chars().count() + 2
+            }
+        }
+    }
+}
+
+/// Render a title line based on its configuration
+fn render_title(
+    config: &TitleConfig,
+    text: &str,
+    width: usize,
+    title_color: Option<crossterm::style::Color>,
+    line_color: Option<crossterm::style::Color>,
+) -> Vec<String> {
+    let mut lines = Vec::new();
+
+    let align = config.align.clone().unwrap_or_else(|| {
+        match config.style {
+            TitleStyle::Stacked => TitleAlign::Left,
+            TitleStyle::Embedded => TitleAlign::Center,
+        }
+    });
+
+    match config.style {
+        TitleStyle::Stacked => {
+            if !text.is_empty() {
+                let text_line = align_text(text, width, &align);
+                let colored_text = match title_color {
+                    Some(color) => format!("{}", text_line.bold().with(color)),
+                    None => format!("{}", text_line.bold()),
+                };
+                lines.push(colored_text);
+            }
+
+            let line_str = repeat_pattern(&config.line, width);
+            let colored_line = match line_color {
+                Some(color) => format!("{}", line_str.with(color)),
+                None => line_str,
+            };
+            lines.push(colored_line);
+        }
+        TitleStyle::Embedded => {
+            let left_cap = &config.left_cap;
+            let right_cap = &config.right_cap;
+            let caps_width = left_cap.chars().count() + right_cap.chars().count();
+            let inner_width = width.saturating_sub(caps_width);
+
+            let line_content = if text.is_empty() {
+                repeat_pattern(&config.line, inner_width)
+            } else {
+                let text_with_spaces = format!(" {} ", text);
+                let text_len = text_with_spaces.chars().count();
+                let remaining = inner_width.saturating_sub(text_len);
+
+                let (left_len, right_len) = match align {
+                    TitleAlign::Left => (1, remaining.saturating_sub(1)),
+                    TitleAlign::Center => (remaining / 2, remaining - remaining / 2),
+                    TitleAlign::Right => (remaining.saturating_sub(1), 1),
+                };
+
+                let left_line = repeat_pattern(&config.line, left_len);
+                let right_line = repeat_pattern(&config.line, right_len);
+
+                let colored_text = match title_color {
+                    Some(color) => format!("{}", text_with_spaces.bold().with(color)),
+                    None => format!("{}", text_with_spaces.bold()),
+                };
+
+                format!("{}{}{}", left_line, colored_text, right_line)
+            };
+
+            let full_line = format!("{}{}{}", left_cap, line_content, right_cap);
+            let colored_line = match line_color {
+                Some(color) => format!("{}", full_line.with(color)),
+                None => full_line,
+            };
+            lines.push(colored_line);
+        }
+    }
+
+    lines
+}
+
+fn align_text(text: &str, width: usize, align: &TitleAlign) -> String {
+    let text_len = text.chars().count();
+    if text_len >= width {
+        return text.to_string();
+    }
+
+    let padding = width - text_len;
+    match align {
+        TitleAlign::Left => format!("{}{}", text, " ".repeat(padding)),
+        TitleAlign::Center => {
+            let left = padding / 2;
+            let right = padding - left;
+            format!("{}{}{}", " ".repeat(left), text, " ".repeat(right))
+        }
+        TitleAlign::Right => format!("{}{}", " ".repeat(padding), text),
+    }
+}
+
+fn repeat_pattern(pattern: &str, width: usize) -> String {
+    if pattern.is_empty() {
+        return "-".repeat(width);
+    }
+
+    let pattern_len = pattern.chars().count();
+    let repeats = (width / pattern_len) + 1;
+    let full: String = pattern.repeat(repeats);
+    full.chars().take(width).collect()
+}
+
+pub fn resolve_title_text(title_config: &TitleConfig, pacman_version: &Option<String>) -> String {
     match title_config.text.as_str() {
+        "" => String::new(),
         "default" => pacman_version
             .clone()
             .unwrap_or_else(|| format!("pacfetch {}", env!("CARGO_PKG_VERSION"))),
