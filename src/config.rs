@@ -1,8 +1,38 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::stats::StatId;
+use crate::stats::{StatId, StatIdOrTitle};
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TitleStyle {
+    #[default]
+    Stacked,
+    Embedded,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum TitleWidth {
+    Named(String),
+    Fixed(usize),
+}
+
+impl Default for TitleWidth {
+    fn default() -> Self {
+        TitleWidth::Named("title".to_string())
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum TitleAlign {
+    Left,
+    Center,
+    Right,
+}
 
 #[derive(Deserialize, Default)]
 pub struct Config {
@@ -60,7 +90,7 @@ fn default_glyph() -> String {
     ": ".to_string()
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TitleConfig {
     #[serde(default = "default_title_text")]
     pub text: String,
@@ -70,6 +100,27 @@ pub struct TitleConfig {
 
     #[serde(default = "default_title_line_color")]
     pub line_color: String,
+
+    #[serde(default)]
+    pub style: TitleStyle,
+
+    #[serde(default)]
+    pub width: TitleWidth,
+
+    #[serde(default)]
+    pub align: Option<TitleAlign>,
+
+    #[serde(default = "default_line_char")]
+    pub line: String,
+
+    #[serde(default)]
+    pub left_cap: String,
+
+    #[serde(default)]
+    pub right_cap: String,
+
+    #[serde(default)]
+    pub padding: usize,
 }
 
 fn default_title_text() -> String {
@@ -84,12 +135,23 @@ fn default_title_line_color() -> String {
     "none".to_string()
 }
 
+fn default_line_char() -> String {
+    "-".to_string()
+}
+
 impl Default for TitleConfig {
     fn default() -> Self {
         TitleConfig {
             text: default_title_text(),
             text_color: default_title_text_color(),
             line_color: default_title_line_color(),
+            style: TitleStyle::default(),
+            width: TitleWidth::default(),
+            align: None,
+            line: default_line_char(),
+            left_cap: String::new(),
+            right_cap: String::new(),
+            padding: 0,
         }
     }
 }
@@ -97,7 +159,7 @@ impl Default for TitleConfig {
 #[derive(Deserialize)]
 pub struct DisplayConfig {
     #[serde(default = "default_stats")]
-    pub stats: Vec<StatId>,
+    pub stats: Vec<String>,
 
     #[serde(default = "default_ascii")]
     pub ascii: String,
@@ -110,6 +172,9 @@ pub struct DisplayConfig {
 
     #[serde(default)]
     pub title: TitleConfig,
+
+    #[serde(default)]
+    pub titles: HashMap<String, TitleConfig>,
 }
 
 fn default_ascii() -> String {
@@ -120,20 +185,20 @@ fn default_ascii_color() -> String {
     "yellow".to_string()
 }
 
-fn default_stats() -> Vec<StatId> {
+fn default_stats() -> Vec<String> {
     vec![
-        StatId::Title,
-        StatId::Installed,
-        StatId::Upgradable,
-        StatId::LastUpdate,
-        StatId::DownloadSize,
-        StatId::InstalledSize,
-        StatId::NetUpgradeSize,
-        StatId::OrphanedPackages,
-        StatId::CacheSize,
-        StatId::Disk,
-        StatId::MirrorUrl,
-        StatId::MirrorHealth,
+        "title".to_string(),
+        "installed".to_string(),
+        "upgradable".to_string(),
+        "last_update".to_string(),
+        "download_size".to_string(),
+        "installed_size".to_string(),
+        "net_upgrade_size".to_string(),
+        "orphaned_packages".to_string(),
+        "cache_size".to_string(),
+        "disk".to_string(),
+        "mirror_url".to_string(),
+        "mirror_health".to_string(),
     ]
 }
 
@@ -145,7 +210,23 @@ impl Default for DisplayConfig {
             ascii_color: default_ascii_color(),
             glyph: GlyphConfig::default(),
             title: TitleConfig::default(),
+            titles: HashMap::new(),
         }
+    }
+}
+
+impl DisplayConfig {
+    pub fn parsed_stats(&self) -> Vec<StatIdOrTitle> {
+        self.stats
+            .iter()
+            .filter_map(|s| match StatId::parse(s) {
+                Ok(parsed) => Some(parsed),
+                Err(e) => {
+                    crate::log::warn(&e);
+                    None
+                }
+            })
+            .collect()
     }
 }
 

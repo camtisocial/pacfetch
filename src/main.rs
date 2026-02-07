@@ -1,5 +1,6 @@
 mod color;
 mod config;
+mod log;
 mod pacman;
 mod stats;
 mod ui;
@@ -128,7 +129,7 @@ fn main() {
         }
         let spinner = util::create_spinner("Gathering stats");
         let stats = pacman::get_stats(
-            &config.display.stats,
+            &config.display.parsed_stats(),
             cli.debug,
             fresh_sync,
             &config,
@@ -138,11 +139,17 @@ fn main() {
         stats
     } else if cli.debug {
         println!();
-        pacman::get_stats(&config.display.stats, cli.debug, fresh_sync, &config, None)
+        pacman::get_stats(
+            &config.display.parsed_stats(),
+            cli.debug,
+            fresh_sync,
+            &config,
+            None,
+        )
     } else {
         let spinner = util::create_spinner("Gathering stats");
         let stats = pacman::get_stats(
-            &config.display.stats,
+            &config.display.parsed_stats(),
             cli.debug,
             fresh_sync,
             &config,
