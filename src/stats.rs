@@ -39,12 +39,10 @@ impl StatId {
             return Ok(StatIdOrTitle::NamedTitle(name.to_string()));
         }
 
-        // Handle legacy "title"
         if s == "title" {
             return Ok(StatIdOrTitle::LegacyTitle);
         }
 
-        // Try to parse as regular StatId
         match s {
             "installed" => Ok(StatIdOrTitle::Stat(StatId::Installed)),
             "upgradable" => Ok(StatIdOrTitle::Stat(StatId::Upgradable)),

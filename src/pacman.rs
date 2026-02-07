@@ -157,7 +157,7 @@ impl DbCache {
     /// Get or create the persistent cache directory
     fn new() -> Option<Self> {
         let cache_dir = crate::config::Config::cache_dir()?;
-        let cache_path = cache_dir.parent()?; // ~/.cache/pacfetch/
+        let cache_path = cache_dir.parent()?;
 
         fs::create_dir_all(&cache_dir).ok()?;
 

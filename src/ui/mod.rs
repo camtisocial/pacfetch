@@ -61,8 +61,21 @@ fn render_title(
             let caps_width = left_cap.chars().count() + right_cap.chars().count();
             let inner_width = width.saturating_sub(caps_width);
 
-            let line_content = if text.is_empty() {
-                repeat_pattern(&config.line, inner_width)
+            let full_line = if text.is_empty() {
+                let line_str = repeat_pattern(&config.line, inner_width);
+                let colored_line = match line_color {
+                    Some(color) => format!("{}", line_str.with(color)),
+                    None => line_str,
+                };
+                let colored_left_cap = match line_color {
+                    Some(color) => format!("{}", left_cap.clone().with(color)),
+                    None => left_cap.clone(),
+                };
+                let colored_right_cap = match line_color {
+                    Some(color) => format!("{}", right_cap.clone().with(color)),
+                    None => right_cap.clone(),
+                };
+                format!("{}{}{}", colored_left_cap, colored_line, colored_right_cap)
             } else {
                 let text_with_spaces = format!(" {} ", text);
                 let text_len = text_with_spaces.chars().count();
@@ -77,20 +90,39 @@ fn render_title(
                 let left_line = repeat_pattern(&config.line, left_len);
                 let right_line = repeat_pattern(&config.line, right_len);
 
+                // Apply colors to each part separately to avoid ANSI reset interference
+                let colored_left_cap = match line_color {
+                    Some(color) => format!("{}", left_cap.clone().with(color)),
+                    None => left_cap.clone(),
+                };
+                let colored_left_line = match line_color {
+                    Some(color) => format!("{}", left_line.with(color)),
+                    None => left_line,
+                };
                 let colored_text = match title_color {
                     Some(color) => format!("{}", text_with_spaces.bold().with(color)),
                     None => format!("{}", text_with_spaces.bold()),
                 };
+                let colored_right_line = match line_color {
+                    Some(color) => format!("{}", right_line.with(color)),
+                    None => right_line,
+                };
+                let colored_right_cap = match line_color {
+                    Some(color) => format!("{}", right_cap.clone().with(color)),
+                    None => right_cap.clone(),
+                };
 
-                format!("{}{}{}", left_line, colored_text, right_line)
+                format!(
+                    "{}{}{}{}{}",
+                    colored_left_cap,
+                    colored_left_line,
+                    colored_text,
+                    colored_right_line,
+                    colored_right_cap
+                )
             };
 
-            let full_line = format!("{}{}{}", left_cap, line_content, right_cap);
-            let colored_line = match line_color {
-                Some(color) => format!("{}", full_line.with(color)),
-                None => full_line,
-            };
-            lines.push(colored_line);
+            lines.push(full_line);
         }
     }
 
@@ -203,6 +235,7 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
     let mut content_max_width: usize = 0;
     let mut title_entries: Vec<(String, TitleConfig, String)> = Vec::new(); // (name, config, resolved_text)
     let mut stat_lines_raw: Vec<(StatId, String)> = Vec::new(); // (stat_id, raw_line for width calc)
+    let mut content_padding: usize = 0; // Max padding from embedded content titles
 
     for stat_ref in &parsed_stats {
         match stat_ref {
@@ -213,6 +246,10 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                 let title_text = resolve_title_text(&config.display.title, &stats.pacman_version);
                 let min_width = title_min_width(&config.display.title, &title_text);
                 content_max_width = content_max_width.max(min_width);
+                // Track padding from titles with content width
+                if matches!(&config.display.title.width, TitleWidth::Named(s) if s == "content") {
+                    content_padding = content_padding.max(config.display.title.padding);
+                }
                 title_entries.push((
                     "__legacy__".to_string(),
                     config.display.title.clone(),
@@ -224,6 +261,10 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                     let title_text = resolve_title_text(title_config, &stats.pacman_version);
                     let min_width = title_min_width(title_config, &title_text);
                     content_max_width = content_max_width.max(min_width);
+                    // Track padding from titles with content width
+                    if matches!(&title_config.width, TitleWidth::Named(s) if s == "content") {
+                        content_padding = content_padding.max(title_config.padding);
+                    }
                     title_entries.push((name.clone(), title_config.clone(), title_text));
                 } else {
                     crate::log::warn(&format!("Title '{}' not found in config", name));
@@ -259,7 +300,11 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
 
                     let width = match &title_config.width {
                         TitleWidth::Named(s) if s == "title" => title_text.chars().count().max(1),
-                        TitleWidth::Named(s) if s == "content" => content_max_width,
+                        TitleWidth::Named(s) if s == "content" => {
+                            // Add padding*2 to "frame" the content
+                            // (padding for left indent + padding for right margin)
+                            content_max_width + (content_padding * 2)
+                        }
                         TitleWidth::Named(_) => title_text.chars().count().max(1),
                         TitleWidth::Fixed(w) => *w,
                     };
@@ -278,7 +323,12 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
 
                     // Format with colors for display
                     let formatted = format_stat_with_colors(*raw_stat_id, stats, config, glyph);
-                    stats_lines.push(formatted);
+                    // Indent stat lines based on content padding
+                    if content_padding > 0 {
+                        stats_lines.push(format!("{}{}", " ".repeat(content_padding), formatted));
+                    } else {
+                        stats_lines.push(formatted);
+                    }
                 }
             }
         }
@@ -305,8 +355,15 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
     for color in &bright_colors {
         color_row_2.push_str(&format!("{}", "   ".on(*color)));
     }
-    stats_lines.push(color_row_1);
-    stats_lines.push(color_row_2);
+    // Indent color palette based on content padding
+    if content_padding > 0 {
+        let indent = " ".repeat(content_padding);
+        stats_lines.push(format!("{}{}", indent, color_row_1));
+        stats_lines.push(format!("{}{}", indent, color_row_2));
+    } else {
+        stats_lines.push(color_row_1);
+        stats_lines.push(color_row_2);
+    }
 
     // Print with ASCII art
     println!();
@@ -346,27 +403,30 @@ fn format_stat_with_colors(
     if stat_id == StatId::MirrorHealth {
         match (&stats.mirror_url, stats.mirror_sync_age_hours) {
             (Some(_), Some(age)) => {
-                let label = format!("{}{}", StatId::MirrorHealth.label(), glyph);
+                let label = StatId::MirrorHealth.label();
                 format!(
-                    "{}{} (last sync {:.1} hours)",
+                    "{}{}{} (last sync {:.1} hours)",
                     label.bold().with(Yellow),
+                    glyph,
                     "OK".green(),
                     age
                 )
             }
             (Some(_), None) => {
-                let label = format!("{}{}", StatId::MirrorHealth.label(), glyph);
+                let label = StatId::MirrorHealth.label();
                 format!(
-                    "{}{} - could not check sync status",
+                    "{}{}{} - could not check sync status",
                     label.bold().with(Yellow),
+                    glyph,
                     "Err".red()
                 )
             }
             (None, _) => {
-                let label = format!("{}{}", StatId::MirrorHealth.label(), glyph);
+                let label = StatId::MirrorHealth.label();
                 format!(
-                    "{}{} - no mirror found",
+                    "{}{}{} - no mirror found",
                     label.bold().with(Yellow),
+                    glyph,
                     "Err".red()
                 )
             }
@@ -388,23 +448,24 @@ fn format_stat_with_colors(
             } else {
                 format!("{}", pct_str.green())
             };
-            let label = format!("Disk ({}){}", config.disk.path, glyph);
+            let label = format!("Disk ({})", config.disk.path);
             format!(
-                "{}{:.2} GiB / {:.2} GiB {}",
+                "{}{}{:.2} GiB / {:.2} GiB {}",
                 label.bold().with(Yellow),
+                glyph,
                 used_gib,
                 total_gib,
                 colored_pct
             )
         } else {
-            let label = format!("Disk ({}){}", config.disk.path, glyph);
-            format!("{}-", label.bold().with(Yellow))
+            let label = format!("Disk ({})", config.disk.path);
+            format!("{}{}-", label.bold().with(Yellow), glyph)
         }
     } else {
-        let label = format!("{}{}", stat_id.label(), glyph);
+        let label = stat_id.label();
         let value = stat_id
             .format_value(stats)
             .unwrap_or_else(|| "-".to_string());
-        format!("{}{}", label.bold().with(Yellow), value)
+        format!("{}{}{}", label.bold().with(Yellow), glyph, value)
     }
 }
