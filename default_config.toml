@@ -31,14 +31,15 @@ glyph = ": "
 #
 # Options:
 #   text        = "default" | "pacman_ver" | "pacfetch_ver" | "" | custom string
-#   text_color  = color name, hex (#RRGGBB), or "none"
-#   line_color  = color name, hex (#RRGGBB), or "none"
-#   style       = "stacked" (text above line) | "embedded" (text within line)
-#   width       = "title" | "content" | integer
+#   text_color  = color name, hex, or "none"
+#   line_color  = color name, hex, or "none"
+#   style       = "stacked" | "embedded" 
+#   width       = "title" | "content": longest string in output | integer
 #   align       = "left" | "center" | "right" (default: left for stacked, center for embedded)
-#   line        = line character(s), can be multi-char pattern like "=-"
-#   left_cap    = left cap character(s) for embedded style
-#   right_cap   = right cap character(s) for embedded style
+#   line        = line characters
+#   left_cap    = left cap character for embedded style
+#   right_cap   = right cap character for embedded style
+#   padding     = integer: indents content and extends title)
 
 [display.titles.header]
 text = "default"
@@ -56,15 +57,16 @@ line = "-"
 # line = "─"
 # left_cap = "├"
 # right_cap = "┤"
+# padding = 2
 
-# Example: footer with custom text
+# Example: footer 
 # [display.titles.footer]
-# text = "pacfetch"
 # style = "embedded"
 # width = "content"
 # line = "─"
 # left_cap = "╰"
 # right_cap = "╯"
+# padding = 2
 
 ################### DISK ####################
 [disk]

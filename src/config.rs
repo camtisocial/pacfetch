@@ -16,7 +16,7 @@ pub enum TitleStyle {
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum TitleWidth {
-    Named(String), // "title" or "content"
+    Named(String), 
     Fixed(usize),
 }
 
@@ -108,7 +108,7 @@ pub struct TitleConfig {
     pub width: TitleWidth,
 
     #[serde(default)]
-    pub align: Option<TitleAlign>, // None = use style default
+    pub align: Option<TitleAlign>,
 
     #[serde(default = "default_line_char")]
     pub line: String,
@@ -118,6 +118,9 @@ pub struct TitleConfig {
 
     #[serde(default)]
     pub right_cap: String,
+
+    #[serde(default)]
+    pub padding: usize,
 }
 
 fn default_title_text() -> String {
@@ -148,6 +151,7 @@ impl Default for TitleConfig {
             line: default_line_char(),
             left_cap: String::new(),
             right_cap: String::new(),
+            padding: 0,
         }
     }
 }
@@ -212,7 +216,6 @@ impl Default for DisplayConfig {
 }
 
 impl DisplayConfig {
-    /// Parse stats strings into StatIdOrTitle values
     pub fn parsed_stats(&self) -> Vec<StatIdOrTitle> {
         self.stats
             .iter()
