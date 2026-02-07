@@ -16,7 +16,7 @@ pub enum TitleStyle {
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum TitleWidth {
-    Named(String), 
+    Named(String),
     Fixed(usize),
 }
 
