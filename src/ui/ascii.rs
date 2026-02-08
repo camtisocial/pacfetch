@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::util;
+
 pub fn get_art(config: &str) -> Vec<String> {
     if config == "NONE" {
         return vec![];
@@ -26,11 +28,16 @@ pub fn get_art(config: &str) -> Vec<String> {
 }
 
 fn normalize_width(lines: Vec<String>) -> Vec<String> {
-    let max_width = lines.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+    let max_width = lines
+        .iter()
+        .map(|s| util::strip_ansi(s).chars().count())
+        .max()
+        .unwrap_or(0);
     lines
         .into_iter()
         .map(|line| {
-            let padding = max_width - line.chars().count();
+            let visible_width = util::strip_ansi(&line).chars().count();
+            let padding = max_width - visible_width;
             if padding > 0 {
                 format!("{}{}", line, " ".repeat(padding))
             } else {
