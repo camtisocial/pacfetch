@@ -374,7 +374,7 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
     } else {
         let art_width = ascii_art
             .iter()
-            .map(|s| s.chars().count())
+            .map(|s| crate::util::strip_ansi(s).chars().count())
             .max()
             .unwrap_or(0);
         let padding = " ".repeat(art_width);
