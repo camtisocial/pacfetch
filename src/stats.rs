@@ -59,6 +59,23 @@ impl StatId {
         }
     }
 
+    pub fn config_key(&self) -> &'static str {
+        match self {
+            StatId::Title => "title",
+            StatId::Installed => "installed",
+            StatId::Upgradable => "upgradable",
+            StatId::LastUpdate => "last_update",
+            StatId::DownloadSize => "download_size",
+            StatId::InstalledSize => "installed_size",
+            StatId::NetUpgradeSize => "net_upgrade_size",
+            StatId::OrphanedPackages => "orphaned_packages",
+            StatId::CacheSize => "cache_size",
+            StatId::MirrorUrl => "mirror_url",
+            StatId::MirrorHealth => "mirror_health",
+            StatId::Disk => "disk",
+        }
+    }
+
     pub fn label(&self) -> &'static str {
         match self {
             StatId::Title => "",
