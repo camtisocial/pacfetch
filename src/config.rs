@@ -84,10 +84,42 @@ impl Default for DiskConfig {
 pub struct GlyphConfig {
     #[serde(default = "default_glyph")]
     pub glyph: String,
+    #[serde(default)]
+    pub color: String,
 }
 
 fn default_glyph() -> String {
     ": ".to_string()
+}
+
+#[derive(Deserialize, Default, Clone)]
+pub struct StatColorOverride {
+    pub label: Option<String>,
+    pub stat: Option<String>,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct ColorsConfig {
+    #[serde(default = "default_label_color")]
+    pub label: String,
+    #[serde(default)]
+    pub stat: String,
+    #[serde(flatten)]
+    pub overrides: HashMap<String, StatColorOverride>,
+}
+
+fn default_label_color() -> String {
+    "bright_yellow".to_string()
+}
+
+impl Default for ColorsConfig {
+    fn default() -> Self {
+        ColorsConfig {
+            label: default_label_color(),
+            stat: String::new(),
+            overrides: HashMap::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -171,6 +203,12 @@ pub struct DisplayConfig {
     pub glyph: GlyphConfig,
 
     #[serde(default)]
+    pub colors: ColorsConfig,
+
+    #[serde(default)]
+    pub labels: HashMap<String, String>,
+
+    #[serde(default)]
     pub title: TitleConfig,
 
     #[serde(default)]
@@ -209,6 +247,8 @@ impl Default for DisplayConfig {
             ascii: default_ascii(),
             ascii_color: default_ascii_color(),
             glyph: GlyphConfig::default(),
+            colors: ColorsConfig::default(),
+            labels: HashMap::new(),
             title: TitleConfig::default(),
             titles: HashMap::new(),
         }

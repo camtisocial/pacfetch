@@ -180,6 +180,21 @@ pub fn resolve_title_text(title_config: &TitleConfig, pacman_version: &Option<St
     }
 }
 
+fn resolve_label(stat_id: &StatId, config: &Config) -> String {
+    config
+        .display
+        .labels
+        .get(stat_id.config_key())
+        .cloned()
+        .unwrap_or_else(|| {
+            if *stat_id == StatId::Disk {
+                format!("Disk ({})", config.disk.path)
+            } else {
+                stat_id.label().to_string()
+            }
+        })
+}
+
 pub fn display_stats(stats: &PacmanStats, config: &Config) {
     let glyph = &config.display.glyph.glyph;
     let parsed_stats = config.display.parsed_stats();
@@ -213,11 +228,7 @@ pub fn display_stats(stats: &PacmanStats, config: &Config) {
             }
             StatIdOrTitle::Stat(stat_id) => {
                 if let Some(value) = stat_id.format_value(stats) {
-                    let label = if *stat_id == StatId::Disk {
-                        format!("Disk ({})", config.disk.path)
-                    } else {
-                        stat_id.label().to_string()
-                    };
+                    let label = resolve_label(stat_id, config);
                     println!("{}{}{}", label, glyph, value);
                 }
             }
@@ -274,11 +285,7 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                 let value = stat_id
                     .format_value(stats)
                     .unwrap_or_else(|| "-".to_string());
-                let label = if *stat_id == StatId::Disk {
-                    format!("Disk ({})", config.disk.path)
-                } else {
-                    stat_id.label().to_string()
-                };
+                let label = resolve_label(stat_id, config);
                 let line = format!("{}{}{}", label, glyph, value);
                 content_max_width = content_max_width.max(line.chars().count());
                 stat_lines_raw.push((*stat_id, line));
@@ -400,38 +407,57 @@ fn format_stat_with_colors(
     config: &Config,
     glyph: &str,
 ) -> String {
+    let label = resolve_label(&stat_id, config);
+    let colors = &config.display.colors;
+    let key = stat_id.config_key();
+
+    // Resolve label color: per-stat override > global
+    let label_color_str = colors
+        .overrides
+        .get(key)
+        .and_then(|o| o.label.as_deref())
+        .unwrap_or(&colors.label);
+    let label_color = parse_color(label_color_str);
+    let colored_label = match label_color {
+        Some(c) => format!("{}", label.bold().with(c)),
+        None => format!("{}", label.bold()),
+    };
+
+    // glyph color
+    let glyph_color = parse_color(&config.display.glyph.color);
+    let colored_glyph = match glyph_color {
+        Some(c) => format!("{}", glyph.with(c)),
+        None => glyph.to_string(),
+    };
+
     if stat_id == StatId::MirrorHealth {
-        match (&stats.mirror_url, stats.mirror_sync_age_hours) {
-            (Some(_), Some(age)) => {
-                let label = StatId::MirrorHealth.label();
-                format!(
-                    "{}{}{} (last sync {:.1} hours)",
-                    label.bold().with(Yellow),
-                    glyph,
-                    "OK".green(),
-                    age
-                )
-            }
-            (Some(_), None) => {
-                let label = StatId::MirrorHealth.label();
-                format!(
-                    "{}{}{} - could not check sync status",
-                    label.bold().with(Yellow),
-                    glyph,
-                    "Err".red()
-                )
-            }
-            (None, _) => {
-                let label = StatId::MirrorHealth.label();
-                format!(
-                    "{}{}{} - no mirror found",
-                    label.bold().with(Yellow),
-                    glyph,
-                    "Err".red()
-                )
-            }
-        }
+        let val_override = colors
+            .overrides
+            .get(key)
+            .and_then(|o| o.stat.as_deref())
+            .and_then(parse_color);
+        let value_str = match (&stats.mirror_url, stats.mirror_sync_age_hours) {
+            (Some(_), Some(age)) => match val_override {
+                Some(c) => format!("{} (last sync {:.1} hours)", "OK".with(c), age),
+                None => format!("{} (last sync {:.1} hours)", "OK".green(), age),
+            },
+            (Some(_), None) => match val_override {
+                Some(c) => format!("{} - could not check sync status", "Err".with(c)),
+                None => format!("{} - could not check sync status", "Err".red()),
+            },
+            (None, _) => match val_override {
+                Some(c) => format!("{} - no mirror found", "Err".with(c)),
+                None => format!("{} - no mirror found", "Err".red()),
+            },
+        };
+        format!("{}{}{}", colored_label, colored_glyph, value_str)
     } else if stat_id == StatId::Disk {
+        // Per-stat value override replaces semantic percentage colors
+        let val_override = colors
+            .overrides
+            .get(key)
+            .and_then(|o| o.stat.as_deref())
+            .and_then(parse_color);
         if let (Some(used), Some(total)) = (stats.disk_used_bytes, stats.disk_total_bytes) {
             let used_gib = used as f64 / 1073741824.0;
             let total_gib = total as f64 / 1073741824.0;
@@ -441,31 +467,33 @@ fn format_stat_with_colors(
                 0.0
             };
             let pct_str = format!("({:.0}%)", pct);
-            let colored_pct = if pct > 90.0 {
-                format!("{}", pct_str.red())
-            } else if pct >= 70.0 {
-                format!("{}", pct_str.yellow())
-            } else {
-                format!("{}", pct_str.green())
+            let colored_pct = match val_override {
+                Some(c) => format!("{}", pct_str.with(c)),
+                None if pct > 90.0 => format!("{}", pct_str.red()),
+                None if pct >= 70.0 => format!("{}", pct_str.yellow()),
+                None => format!("{}", pct_str.green()),
             };
-            let label = format!("Disk ({})", config.disk.path);
             format!(
                 "{}{}{:.2} GiB / {:.2} GiB {}",
-                label.bold().with(Yellow),
-                glyph,
-                used_gib,
-                total_gib,
-                colored_pct
+                colored_label, colored_glyph, used_gib, total_gib, colored_pct
             )
         } else {
-            let label = format!("Disk ({})", config.disk.path);
-            format!("{}{}-", label.bold().with(Yellow), glyph)
+            format!("{}{}-", colored_label, colored_glyph)
         }
     } else {
-        let label = stat_id.label();
         let value = stat_id
             .format_value(stats)
             .unwrap_or_else(|| "-".to_string());
-        format!("{}{}{}", label.bold().with(Yellow), glyph, value)
+        let value_color_str = colors
+            .overrides
+            .get(key)
+            .and_then(|o| o.stat.as_deref())
+            .unwrap_or(&colors.stat);
+        let value_color = parse_color(value_color_str);
+        let colored_value = match value_color {
+            Some(c) => format!("{}", value.with(c)),
+            None => value,
+        };
+        format!("{}{}{}", colored_label, colored_glyph, colored_value)
     }
 }

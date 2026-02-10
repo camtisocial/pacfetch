@@ -4,7 +4,6 @@
 ascii = "PACMAN_DEFAULT"
 ascii_color = "yellow"
 
-# Stats to display. Use "title.{name}" to reference titles defined below.
 # Available stats: installed, upgradable, last_update, download_size, installed_size,
 # net_upgrade_size, orphaned_packages, cache_size, disk, mirror_url, mirror_health
 stats = [
@@ -24,6 +23,26 @@ stats = [
 
 [display.glyph]
 glyph = ": "
+color = "none"
+
+################### COLORS ####################
+# Global stat colors. All support color names, hex (#RRGGBB), or "none".
+[display.colors]
+label = "bright_yellow"
+stat = "none"
+
+# Per-stat color overrides (takes precedence over global)
+# [display.colors.installed]
+# label = "bright_green"
+# stat = "white"
+
+################### LABELS ####################
+# Override label text for individual stats.
+# Keys: installed, upgradable, last_update, download_size, installed_size,
+# net_upgrade_size, orphaned_packages, cache_size, disk, mirror_url, mirror_health
+# [display.labels]
+# installed = "Pkgs"
+# cache_size = "Cache"
 
 ################### TITLES ####################
 # Define named titles under [display.titles.{name}]
@@ -49,24 +68,19 @@ style = "stacked"
 width = "title"
 line = "-"
 
-# Example: divider with no text
-# [display.titles.divider]
-# text = ""
+
+# example embedded title
+# [display.titles.header]
+# text = "default"
+# text_color = "bright_yellow"
+# line_color = "none"
 # style = "embedded"
 # width = "content"
 # line = "─"
-# left_cap = "├"
-# right_cap = "┤"
+# left_cap = "╭"
+# right_cap = "╮"
 # padding = 2
 
-# Example: footer 
-# [display.titles.footer]
-# style = "embedded"
-# width = "content"
-# line = "─"
-# left_cap = "╰"
-# right_cap = "╯"
-# padding = 2
 
 ################### DISK ####################
 [disk]
