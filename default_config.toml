@@ -5,10 +5,11 @@ ascii = "PACMAN_DEFAULT"
 ascii_color = "yellow"
 
 # Image takes precedence when set
-# image = "~/.config/pacfetch/logo.png"
+# image = "~/.config/pacfetch/example_image.png"
 
 # Available stats: installed, upgradable, last_update, download_size, installed_size,
-# net_upgrade_size, orphaned_packages, cache_size, disk, mirror_url, mirror_health
+# net_upgrade_size, orphaned_packages, cache_size, disk, mirror_url, mirror_health,
+# colors, colors_dark, colors_light
 stats = [
     "title.header",
     "installed",
@@ -22,11 +23,19 @@ stats = [
     "cache_size",
     "mirror_url",
     "mirror_health",
+    "colors",
 ]
 
 [display.glyph]
 glyph = ": "
 color = "none"
+
+################### PALETTE ####################
+# Built-in styles: "blocks" (background-colored), "dots" (● foreground), "ghosts" (󰊠 nerd font)
+# Any other value is used as a custom character with foreground color.
+[display.palette]
+style = "blocks"
+spacing = 0 
 
 ################### COLORS ####################
 # Global stat colors. All support color names, hex (#RRGGBB), or "none".
