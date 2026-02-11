@@ -236,6 +236,88 @@ pub fn display_stats(stats: &PacmanStats, config: &Config) {
     }
 }
 
+fn try_render_with_image(stats_lines: Vec<String>, config: &Config) -> Option<String> {
+    let image_path = &config.display.image;
+    if image_path.is_empty() {
+        return None;
+    }
+
+    let expanded = crate::util::expand_path(image_path);
+    let img = match image::ImageReader::open(&expanded)
+        .and_then(|r| r.with_guessed_format())
+        .map_err(image::ImageError::IoError)
+        .and_then(|r| r.decode())
+    {
+        Ok(img) => img,
+        Err(e) => {
+            crate::log::warn(&format!("Failed to load image '{}': {}", expanded, e));
+            return None;
+        }
+    };
+
+    let backend = match onefetch_image::get_best_backend() {
+        Ok(Some(b)) => b,
+        Ok(None) => {
+            crate::log::warn("No supported image protocol detected, falling back to ASCII");
+            return None;
+        }
+        Err(e) => {
+            crate::log::warn(&format!("Failed to detect image backend: {}", e));
+            return None;
+        }
+    };
+
+    match backend.add_image(stats_lines, &img, 256) {
+        Ok(output) => Some(fix_image_cursor_up(output)),
+        Err(e) => {
+            crate::log::warn(&format!("Image rendering failed: {}, falling back to ASCII", e));
+            None
+        }
+    }
+}
+
+/// Fix vertical misalignment between image and text overlay.
+fn fix_image_cursor_up(output: String) -> String {
+    let extra: u32 = if output.contains("\x1b_G") {
+        if std::env::var("TERM_PROGRAM").is_ok_and(|v| v == "ghostty") {
+            2
+        } else {
+            1
+        }
+    } else if output.contains("\x1b]1337") {
+        1 
+    } else {
+        return output;
+    };
+
+    let bytes = output.as_bytes();
+    let mut i = 0;
+    while i + 2 < bytes.len() {
+        if bytes[i] == 0x1b && bytes[i + 1] == b'[' {
+            let start = i + 2;
+            let mut end = start;
+            while end < bytes.len() && bytes[end].is_ascii_digit() {
+                end += 1;
+            }
+            if end > start && end < bytes.len() && bytes[end] == b'A' {
+                if let Some(n) = std::str::from_utf8(&bytes[start..end])
+                    .ok()
+                    .and_then(|s| s.parse::<u32>().ok())
+                {
+                    return format!(
+                        "{}\x1b[{}A{}",
+                        &output[..i],
+                        n + extra,
+                        &output[end + 1..]
+                    );
+                }
+            }
+        }
+        i += 1;
+    }
+    output
+}
+
 pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::Result<()> {
     let ascii_art = ascii::get_art(&config.display.ascii);
     let ascii_color = parse_color(&config.display.ascii_color);
@@ -370,6 +452,24 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
     } else {
         stats_lines.push(color_row_1);
         stats_lines.push(color_row_2);
+    }
+
+    // Try image rendering first, fall back to ASCII art
+    if !config.display.image.is_empty() {
+        // Pad stats lines with leading spaces to match ASCII art spacing (3-space gap)
+        let padded_lines: Vec<String> = stats_lines
+            .iter()
+            .map(|line| format!("   {}", line))
+            .collect();
+        if let Some(output) = try_render_with_image(padded_lines, config) {
+            println!();
+            // Indent each line for left margin (1 space, matching ASCII path)
+            for line in output.lines() {
+                println!(" {}", line);
+            }
+            println!();
+            return Ok(());
+        }
     }
 
     // Print with ASCII art

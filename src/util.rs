@@ -64,6 +64,20 @@ pub fn strip_ansi(s: &str) -> String {
     result
 }
 
+/// Expand ~ to the user's home directory, respecting SUDO_USER
+pub fn expand_path(path: &str) -> String {
+    if path.starts_with('~') {
+        let home = if let Ok(sudo_user) = std::env::var("SUDO_USER") {
+            PathBuf::from(format!("/home/{}", sudo_user))
+        } else {
+            dirs::home_dir().unwrap_or_default()
+        };
+        path.replacen('~', &home.to_string_lossy(), 1)
+    } else {
+        path.to_string()
+    }
+}
+
 /// Check if running as root
 pub fn is_root() -> bool {
     #[cfg(unix)]
