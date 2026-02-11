@@ -80,6 +80,31 @@ impl Default for DiskConfig {
     }
 }
 
+#[derive(Deserialize)]
+pub struct PaletteConfig {
+    #[serde(default = "default_palette_style")]
+    pub style: String,
+    #[serde(default = "default_palette_spacing")]
+    pub spacing: usize,
+}
+
+fn default_palette_style() -> String {
+    "blocks".to_string()
+}
+
+fn default_palette_spacing() -> usize {
+    1
+}
+
+impl Default for PaletteConfig {
+    fn default() -> Self {
+        PaletteConfig {
+            style: default_palette_style(),
+            spacing: default_palette_spacing(),
+        }
+    }
+}
+
 #[derive(Deserialize, Default)]
 pub struct GlyphConfig {
     #[serde(default = "default_glyph")]
@@ -206,6 +231,9 @@ pub struct DisplayConfig {
     pub glyph: GlyphConfig,
 
     #[serde(default)]
+    pub palette: PaletteConfig,
+
+    #[serde(default)]
     pub colors: ColorsConfig,
 
     #[serde(default)]
@@ -240,6 +268,7 @@ fn default_stats() -> Vec<String> {
         "disk".to_string(),
         "mirror_url".to_string(),
         "mirror_health".to_string(),
+        "colors".to_string(),
     ]
 }
 
@@ -251,6 +280,7 @@ impl Default for DisplayConfig {
             ascii_color: default_ascii_color(),
             image: String::new(),
             glyph: GlyphConfig::default(),
+            palette: PaletteConfig::default(),
             colors: ColorsConfig::default(),
             labels: HashMap::new(),
             title: TitleConfig::default(),

@@ -1,9 +1,9 @@
 mod ascii;
 
 use crate::color::parse_color;
-use crate::config::{Config, TitleAlign, TitleConfig, TitleStyle, TitleWidth};
+use crate::config::{Config, PaletteConfig, TitleAlign, TitleConfig, TitleStyle, TitleWidth};
 use crate::pacman::PacmanStats;
-use crate::stats::{StatId, StatIdOrTitle};
+use crate::stats::{PaletteVariant, StatId, StatIdOrTitle};
 use crossterm::style::{Color::*, Stylize};
 use std::io;
 
@@ -195,6 +195,91 @@ fn resolve_label(stat_id: &StatId, config: &Config) -> String {
         })
 }
 
+const DARK_COLORS: [crossterm::style::Color; 8] = [
+    Black,
+    DarkRed,
+    DarkGreen,
+    DarkYellow,
+    DarkBlue,
+    DarkMagenta,
+    DarkCyan,
+    Grey,
+];
+const BRIGHT_COLORS: [crossterm::style::Color; 8] =
+    [DarkGrey, Red, Green, Yellow, Blue, Magenta, Cyan, White];
+
+fn render_palette_row(
+    colors: &[crossterm::style::Color; 8],
+    style: &str,
+    spacing: usize,
+) -> String {
+    let spacer = " ".repeat(spacing);
+    let mut row = String::new();
+    for color in colors {
+        match style {
+            "blocks" => row.push_str(&format!("{}{}", "   ".on(*color), spacer)),
+            "dots" => row.push_str(&format!("{}{}", "⬤".with(*color), spacer)),
+            "ghosts" => row.push_str(&format!("{}{}", "󰊠".with(*color), spacer)),
+            custom => row.push_str(&format!("{}{}", custom.with(*color), spacer)),
+        }
+    }
+    row
+}
+
+fn palette_row_width(style: &str, spacing: usize) -> usize {
+    let char_width = match style {
+        "blocks" => 3,
+        "dots" | "ghosts" => 1,
+        custom => custom.chars().count(),
+    };
+    8 * (char_width + spacing)
+}
+
+fn render_palette_lines(
+    variant: PaletteVariant,
+    palette_config: &PaletteConfig,
+    content_padding: usize,
+) -> Vec<String> {
+    let style = &palette_config.style;
+    let spacing = palette_config.spacing;
+    let indent = if content_padding > 0 {
+        " ".repeat(content_padding)
+    } else {
+        String::new()
+    };
+
+    let mut lines = Vec::new();
+    match variant {
+        PaletteVariant::Both => {
+            lines.push(format!(
+                "{}{}",
+                indent,
+                render_palette_row(&DARK_COLORS, style, spacing)
+            ));
+            lines.push(format!(
+                "{}{}",
+                indent,
+                render_palette_row(&BRIGHT_COLORS, style, spacing)
+            ));
+        }
+        PaletteVariant::Dark => {
+            lines.push(format!(
+                "{}{}",
+                indent,
+                render_palette_row(&DARK_COLORS, style, spacing)
+            ));
+        }
+        PaletteVariant::Light => {
+            lines.push(format!(
+                "{}{}",
+                indent,
+                render_palette_row(&BRIGHT_COLORS, style, spacing)
+            ));
+        }
+    }
+    lines
+}
+
 pub fn display_stats(stats: &PacmanStats, config: &Config) {
     let glyph = &config.display.glyph.glyph;
     let parsed_stats = config.display.parsed_stats();
@@ -230,6 +315,12 @@ pub fn display_stats(stats: &PacmanStats, config: &Config) {
                 if let Some(value) = stat_id.format_value(stats) {
                     let label = resolve_label(stat_id, config);
                     println!("{}{}{}", label, glyph, value);
+                }
+            }
+            StatIdOrTitle::ColorPalette(variant) => {
+                let palette_lines = render_palette_lines(*variant, &config.display.palette, 0);
+                for line in palette_lines {
+                    println!("{}", line);
                 }
             }
         }
@@ -371,6 +462,13 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                 content_max_width = content_max_width.max(line.chars().count());
                 stat_lines_raw.push((*stat_id, line));
             }
+            StatIdOrTitle::ColorPalette(_) => {
+                let row_width = palette_row_width(
+                    &config.display.palette.style,
+                    config.display.palette.spacing,
+                );
+                content_max_width = content_max_width.max(row_width);
+            }
         }
     }
 
@@ -419,38 +517,12 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                     }
                 }
             }
+            StatIdOrTitle::ColorPalette(variant) => {
+                let palette_lines =
+                    render_palette_lines(*variant, &config.display.palette, content_padding);
+                stats_lines.extend(palette_lines);
+            }
         }
-    }
-
-    // Add color palette rows
-    stats_lines.push(String::new());
-    let colors = [
-        Black,
-        DarkRed,
-        DarkGreen,
-        DarkYellow,
-        DarkBlue,
-        DarkMagenta,
-        DarkCyan,
-        Grey,
-    ];
-    let bright_colors = [DarkGrey, Red, Green, Yellow, Blue, Magenta, Cyan, White];
-    let mut color_row_1 = String::new();
-    for color in &colors {
-        color_row_1.push_str(&format!("{}", "   ".on(*color)));
-    }
-    let mut color_row_2 = String::new();
-    for color in &bright_colors {
-        color_row_2.push_str(&format!("{}", "   ".on(*color)));
-    }
-    // Indent color palette based on content padding
-    if content_padding > 0 {
-        let indent = " ".repeat(content_padding);
-        stats_lines.push(format!("{}{}", indent, color_row_1));
-        stats_lines.push(format!("{}{}", indent, color_row_2));
-    } else {
-        stats_lines.push(color_row_1);
-        stats_lines.push(color_row_2);
     }
 
     // Try image rendering first, fall back to ASCII art
@@ -462,8 +534,11 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
             .collect();
         if let Some(output) = try_render_with_image(padded_lines, config) {
             println!();
-            // Indent each line for left margin (1 space, matching ASCII path)
-            for line in output.lines() {
+            let lines: Vec<&str> = output.lines().collect();
+            let is_visible = |l: &&str| !crate::util::strip_ansi(l).trim().is_empty();
+            let start = lines.iter().position(is_visible).unwrap_or(0);
+            let end = lines.iter().rposition(is_visible).map_or(0, |i| i + 1);
+            for line in &lines[start..end] {
                 println!(" {}", line);
             }
             println!();

@@ -20,11 +20,19 @@ pub enum StatId {
     Disk,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaletteVariant {
+    Both,
+    Dark,
+    Light,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatIdOrTitle {
     Stat(StatId),
     NamedTitle(String),
     LegacyTitle,
+    ColorPalette(PaletteVariant),
 }
 
 const BYTES_PER_GIB: f64 = 1073741824.0;
@@ -55,6 +63,9 @@ impl StatId {
             "mirror_url" => Ok(StatIdOrTitle::Stat(StatId::MirrorUrl)),
             "mirror_health" => Ok(StatIdOrTitle::Stat(StatId::MirrorHealth)),
             "disk" => Ok(StatIdOrTitle::Stat(StatId::Disk)),
+            "colors" => Ok(StatIdOrTitle::ColorPalette(PaletteVariant::Both)),
+            "colors_dark" => Ok(StatIdOrTitle::ColorPalette(PaletteVariant::Dark)),
+            "colors_light" => Ok(StatIdOrTitle::ColorPalette(PaletteVariant::Light)),
             _ => Err(format!("unknown stat: {}", s)),
         }
     }
