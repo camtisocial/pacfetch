@@ -537,10 +537,7 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
             let lines: Vec<&str> = output.lines().collect();
             let is_visible = |l: &&str| !crate::util::strip_ansi(l).trim().is_empty();
             let start = lines.iter().position(is_visible).unwrap_or(0);
-            let end = lines
-                .iter()
-                .rposition(is_visible)
-                .map_or(0, |i| i + 1);
+            let end = lines.iter().rposition(is_visible).map_or(0, |i| i + 1);
             for line in &lines[start..end] {
                 println!(" {}", line);
             }
