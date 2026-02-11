@@ -4,6 +4,9 @@
 ascii = "PACMAN_DEFAULT"
 ascii_color = "yellow"
 
+# Image takes precedence when set
+# image = "~/.config/pacfetch/logo.png"
+
 # Available stats: installed, upgradable, last_update, download_size, installed_size,
 # net_upgrade_size, orphaned_packages, cache_size, disk, mirror_url, mirror_health
 stats = [

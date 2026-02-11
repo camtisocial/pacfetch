@@ -200,6 +200,9 @@ pub struct DisplayConfig {
     pub ascii_color: String,
 
     #[serde(default)]
+    pub image: String,
+
+    #[serde(default)]
     pub glyph: GlyphConfig,
 
     #[serde(default)]
@@ -246,6 +249,7 @@ impl Default for DisplayConfig {
             stats: default_stats(),
             ascii: default_ascii(),
             ascii_color: default_ascii_color(),
+            image: String::new(),
             glyph: GlyphConfig::default(),
             colors: ColorsConfig::default(),
             labels: HashMap::new(),
