@@ -1,0 +1,99 @@
+################### DISPLAY ####################
+[display]
+# this image can be found in docs/assets
+image = "~/.config/pacfetch/logo.png"
+stats = [
+    "title.header",
+    "installed",
+    "upgradable",
+    "last_update",
+    "download_size",
+    "installed_size",
+    "net_upgrade_size",
+    "disk",
+    "title.footer",
+    "colors_light",
+]
+
+[display.glyph]
+glyph = " ->  "
+align = true
+
+################### PALETTE ####################
+[display.palette]
+style = "ghosts"
+spacing = 3 
+
+
+################### COLORS ####################
+# Global stat colors. All support color names, hex (#RRGGBB), or "none".
+[display.colors]
+label = "bright_green"
+# stat = "none"
+
+# Per-stat color overrides (takes precedence over global)
+# [display.colors.installed]
+# label = "bright_green"
+# stat = "white"
+
+
+################### LABELS ####################
+# [display.labels]
+# installed =            " 󰏖 " 
+# upgradable =           " 󰚰 " 
+# last_update =          " 󰥔 "
+# download_size =        " 󰇚 "
+# installed_size =       " 󰋊 "
+# net_upgrade_size =     " 󰁝 "
+# disk =                 " 󰾆 "
+# orphaned_packages =    " 󰆴 "
+# cache_size =           " 󰃨 "
+# mirror_url =           " 󰖟 "
+# mirror_health =        " 󰣐 "
+
+################### TITLES ####################
+
+[display.titles.header]
+text = "pacman_ver"
+text_color = "bright_magenta"
+line_color = "none"
+style = "embedded"
+width = "content"
+line = "─"
+left_cap = "╭"
+right_cap = "╮"
+padding = 2
+
+
+[display.titles.mid]
+text = "System Information"
+text_color = "bright_magenta"
+line_color = "none"
+style = "embedded"
+width = "content"
+line = "─"
+left_cap = "├"
+right_cap = "┤"
+padding = 2
+
+
+[display.titles.footer]
+text = ""
+line_color = "none"
+style = "embedded"
+width = "content"
+line = "─"
+left_cap = "╰"
+right_cap = "╯"
+padding = 2
+
+
+################### DISK ####################
+[disk]
+path = "/"
+
+################### CACHE ####################
+[cache]
+ttl_minutes = 15
+
+
