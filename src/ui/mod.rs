@@ -270,7 +270,10 @@ fn try_render_with_image(stats_lines: Vec<String>, config: &Config) -> Option<St
     match backend.add_image(stats_lines, &img, 256) {
         Ok(output) => Some(fix_image_cursor_up(output)),
         Err(e) => {
-            crate::log::warn(&format!("Image rendering failed: {}, falling back to ASCII", e));
+            crate::log::warn(&format!(
+                "Image rendering failed: {}, falling back to ASCII",
+                e
+            ));
             None
         }
     }
@@ -285,7 +288,7 @@ fn fix_image_cursor_up(output: String) -> String {
             1
         }
     } else if output.contains("\x1b]1337") {
-        1 
+        1
     } else {
         return output;
     };
@@ -299,18 +302,14 @@ fn fix_image_cursor_up(output: String) -> String {
             while end < bytes.len() && bytes[end].is_ascii_digit() {
                 end += 1;
             }
-            if end > start && end < bytes.len() && bytes[end] == b'A' {
-                if let Some(n) = std::str::from_utf8(&bytes[start..end])
+            if end > start
+                && end < bytes.len()
+                && bytes[end] == b'A'
+                && let Some(n) = std::str::from_utf8(&bytes[start..end])
                     .ok()
                     .and_then(|s| s.parse::<u32>().ok())
-                {
-                    return format!(
-                        "{}\x1b[{}A{}",
-                        &output[..i],
-                        n + extra,
-                        &output[end + 1..]
-                    );
-                }
+            {
+                return format!("{}\x1b[{}A{}", &output[..i], n + extra, &output[end + 1..]);
             }
         }
         i += 1;
