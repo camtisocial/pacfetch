@@ -32,6 +32,20 @@
 
 ---
 
+<img src="docs/assets/small2.png" width="49%" align="left" />
+<img src="docs/assets/ghostty-test.png" width="49%" align="left" />
+<img src="docs/assets/gnome-test.png" width="48%" align="top" />
+<img src="docs/assets/img_support2.png" width="48%" align="top" />
+
+<br>
+<br>
+
+
+
+
+
+
+
 ## Installation
 
 #### AUR
@@ -86,38 +100,188 @@ Run `pacfetch -Syu` to sync and upgrade, or just `pacfetch` to see stats synced 
 
 ## Roadmap
 
-**Display customization overhaul**  
->`colors` · `glyphs` · `more underlining options` · `true color support` · `spinners/progress bars` · `stat aliases` 
-
-**Image rendering support**  
->`kitty` · `sixel` · `iterm`
-
 **AUR helper integration**  
 >`yay` · `paru`
 
 **More options, more stats**  
-> `--packages` · `--mini` · `--image` · `--json` · `--aur` · `--news` · `--color` 
+> `-Si` · `--image` · `--json` · `--aur` · `--news` · `--color` 
+
+**Display customization overhaul**  
+>~`colors`~ · ~`glyphs`~ · ~`more underlining options`~ · ~`true color support`~ · ~`spinners/progress bars`~ · ~`stat aliases`~ 
+
+~**Image rendering support**~ 
+>~`kitty`~ · ~`sixel`~ · ~`iterm`~
 
 **Distro and terminal compatibility testing** 
 > `Manjaro` · `Endeavor`
 > 
-> ~`kitty`~ · `alacritty` · `konsole` · `gnome` · `ghostty`
+> ~`kitty`~ · ~`alacritty`~ · ~`konsole`~ · ~`gnome`~ · ~`ghostty`~
 
   <br>
   <br>
   
-## Screenshots
-
-<p align="center">
-  <img src="docs/assets/ghostty-test.png" alt="Demo" width="49%"  />
-  <img src="docs/assets/gnome-test.png" alt="Demo" width="49%" />
-</p>
+## Demo
 <p align="center">
   <img src="docs/assets/demo.gif" alt="Full demo" width="920" height="500" />
 </p>
 
 <br>
 <br>
+
+  ## Customization                                                                                                           
+                                                                                                                             
+  Config is created on first run at `~/.config/pacfetch/pacfetch.toml`                                                       
+                                                                                                                             
+  ### Stats                                                                                                                  
+                                                                                                                             
+  Choose which stats to display and in what order. Insert `"newline"` for blank line spacing.
+
+  ```toml
+  [display]
+  stats = [
+      "title.header",
+      "installed",
+      "upgradable",
+      "last_update",
+      "newline",
+      "download_size",
+      "installed_size",
+      "net_upgrade_size",
+      "disk",
+      "orphaned_packages",
+      "cache_size",
+      "mirror_url",
+      "mirror_health",
+      "colors",
+  ]
+  ```
+
+  Available stats: `installed` · `upgradable` · `last_update` · `download_size` · `installed_size` · `net_upgrade_size` ·
+  `orphaned_packages` · `cache_size` · `disk` · `mirror_url` · `mirror_health` · `colors` · `colors_dark` · `colors_light` ·
+  `newline`
+
+  ### ASCII Art
+
+  ```toml
+  [display]
+  ascii = "PACMAN_DEFAULT"  # "PACMAN_DEFAULT", "PACMAN_SMALL", "NONE", or a file path
+  ascii_color = "yellow"
+  ```
+
+  ### Image
+
+  Set an image path to render a logo alongside stats. Image takes precedence over ASCII art. Protocol (kitty, sixel, iterm)
+  is auto-detected.
+
+  ```toml
+  [display]
+  image = "~/.config/pacfetch/logo.png"
+  ```
+
+  ### Titles
+
+  Define named titles under `[display.titles.{name}]` and reference them in the stats array as `"title.{name}"`. You can
+  create as many as you want.
+
+  ```toml
+
+  # example embedded title
+  [display.titles.header]
+  text = "default"
+  text_color = "bright_yellow"
+  line_color = "none"
+  style = "embedded"
+  width = "content"
+  line = "─"
+  left_cap = "╭"
+  right_cap = "╮"
+  padding = 2
+
+  # footer
+  [display.titles.footer]
+  text = ""
+  style = "embedded"
+  width = "content"
+  line = "─"
+  left_cap = "╰"
+  right_cap = "╯"
+  ```
+
+  | Option | Values | Default |
+  |--------|--------|---------|
+  | `text` | `"default"` · `"pacman_ver"` · `"pacfetch_ver"` · `""` · custom string | `""` |
+  | `text_color` | color name, hex, `"none"` | `"bright_yellow"` |
+  | `line_color` | color name, hex, `"none"` | `"none"` |
+  | `style` | `"stacked"` · `"embedded"` | `"stacked"` |
+  | `width` | `"title"` · `"content"` · integer | `"title"` |
+  | `align` | `"left"` · `"center"` · `"right"` | left for stacked, center for embedded |
+  | `line` | string | `"-"` |
+  | `left_cap` / `right_cap` | string | `""` |
+  | `padding` | integer | `0` |
+
+  ### Colors
+
+  All color values support named colors, hex (`#RRGGBB`), or `"none"` for terminal default.
+
+  ```toml
+  # global stat colors
+  [display.colors]
+  label = "bright_yellow"
+  stat = "none"
+
+  # per-stat override (takes precedence over global)
+  [display.colors.installed]
+  label = "bright_green"
+  stat = "white"
+  ```
+
+  ### Labels
+
+  Override the display text for any stat label.
+
+  ```toml
+  [display.labels]
+  installed = "Pkgs"
+  cache_size = "Cache"
+  disk = "Storage (/)"
+  ```
+
+  ### Glyph
+
+  Customize the separator between labels and values.
+
+  ```toml
+  [display.glyph]
+  glyph = ": "
+  color = "none"
+  ```
+
+  ### Color Palette
+
+  Configure the appearance of the `colors` / `colors_dark` / `colors_light` stats.
+
+  ```toml
+  [display.palette]
+  style = "blocks"   # "blocks", "dots", "ghosts", or any custom character
+  spacing = 0        # spaces between each color element
+  ```
+
+  ### Disk
+
+  ```toml
+  [disk]
+  path = "/"
+  ```
+
+  ### Cache
+
+  ```toml
+  [cache]
+  ttl_minutes = 15   # set to 0 to always sync fresh
+  ```
+
+  <br>
+  <br>
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) 
