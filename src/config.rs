@@ -34,8 +34,13 @@ pub enum TitleAlign {
     Right,
 }
 
+const CONFIG_VERSION: &str = "1.1.0";
+
 #[derive(Deserialize, Default)]
 pub struct Config {
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub config_version: String,
     #[serde(default)]
     pub display: DisplayConfig,
     #[serde(default)]
@@ -105,16 +110,28 @@ impl Default for PaletteConfig {
     }
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize)]
 pub struct GlyphConfig {
     #[serde(default = "default_glyph")]
     pub glyph: String,
     #[serde(default)]
     pub color: String,
+    #[serde(default)]
+    pub align: bool,
 }
 
 fn default_glyph() -> String {
     ": ".to_string()
+}
+
+impl Default for GlyphConfig {
+    fn default() -> Self {
+        GlyphConfig {
+            glyph: default_glyph(),
+            color: String::new(),
+            align: false,
+        }
+    }
 }
 
 #[derive(Deserialize, Default, Clone)]
@@ -339,6 +356,74 @@ impl Config {
             return Config::default();
         };
 
+        // Migrate v1.0.0 configs that lack v1.1.0 sections
+        let contents = if Self::needs_migration(&contents) {
+            Self::migrate_config(&path, &contents).unwrap_or(contents)
+        } else {
+            contents
+        };
+
         toml::from_str(&contents).unwrap_or_default()
+    }
+
+    fn needs_migration(contents: &str) -> bool {
+        let Ok(raw) = toml::from_str::<toml::Value>(contents) else {
+            return false;
+        };
+        let version = raw
+            .get("config_version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("1.0.0");
+        version != CONFIG_VERSION
+    }
+
+    fn migrate_config(path: &PathBuf, contents: &str) -> Option<String> {
+        let old: toml::Value = toml::from_str(contents).ok()?;
+
+        let backup = path.with_extension("toml.bak");
+        fs::copy(path, &backup).ok()?;
+
+        let display = old.get("display");
+
+        let ascii = display
+            .and_then(|d| d.get("ascii"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("PACMAN_DEFAULT");
+
+        let mut stats: Vec<String> = display
+            .and_then(|d| d.get("stats"))
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_else(default_stats);
+
+        if !stats.iter().any(|s| s.starts_with("title")) {
+            stats.insert(0, "title.header".to_string());
+        }
+        if !stats.iter().any(|s| s.starts_with("colors")) {
+            stats.push("newline".to_string());
+            stats.push("colors".to_string());
+        }
+
+        let stats_toml = {
+            let entries: Vec<String> = stats.iter().map(|s| format!("    \"{}\"", s)).collect();
+            format!("stats = [\n{},\n]", entries.join(",\n"))
+        };
+
+        let mut new_config = include_str!("../default_config.toml").to_string();
+
+        new_config = new_config.replace(
+            "ascii = \"PACMAN_DEFAULT\"",
+            &format!("ascii = \"{}\"", ascii),
+        );
+        let stats_start = new_config.find("stats = [")?;
+        let stats_end = new_config[stats_start..].find(']')? + stats_start + 1;
+        new_config.replace_range(stats_start..stats_end, &stats_toml);
+
+        fs::write(path, &new_config).ok()?;
+        Some(new_config)
     }
 }
