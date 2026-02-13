@@ -1,5 +1,3 @@
-config_version = "1.1.0"
-
 ################### DISPLAY ####################
 [display]
 ## ascii options: "PACMAN_DEFAULT", "PACMAN_SMALL", "NONE", or a file path

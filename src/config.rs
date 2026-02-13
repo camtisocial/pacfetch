@@ -34,13 +34,8 @@ pub enum TitleAlign {
     Right,
 }
 
-const CONFIG_VERSION: &str = "1.1.0";
-
 #[derive(Deserialize, Default)]
 pub struct Config {
-    #[serde(default)]
-    #[allow(dead_code)]
-    pub config_version: String,
     #[serde(default)]
     pub display: DisplayConfig,
     #[serde(default)]
@@ -366,18 +361,16 @@ impl Config {
         toml::from_str(&contents).unwrap_or_default()
     }
 
+    /// v1.0.0 configs only had [display] with ascii + stats.
+    /// Any config with v1.1.0 sections is already up to date.
     fn needs_migration(contents: &str) -> bool {
-        let Ok(raw) = toml::from_str::<toml::Value>(contents) else {
-            return false;
-        };
-        let version = raw
-            .get("config_version")
-            .and_then(|v| v.as_str())
-            .unwrap_or("1.0.0");
-        version != CONFIG_VERSION
+        !contents.contains("[display.glyph]")
+            && !contents.contains("[display.titles")
+            && !contents.contains("[display.palette]")
     }
 
     fn migrate_config(path: &PathBuf, contents: &str) -> Option<String> {
+        // Full v1.0.0 → v1.1.0 migration
         let old: toml::Value = toml::from_str(contents).ok()?;
 
         let backup = path.with_extension("toml.bak");
