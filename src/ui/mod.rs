@@ -280,9 +280,39 @@ fn render_palette_lines(
     lines
 }
 
+fn max_label_width(parsed_stats: &[StatIdOrTitle], config: &Config) -> usize {
+    if !config.display.glyph.align {
+        return 0;
+    }
+    parsed_stats
+        .iter()
+        .filter_map(|s| {
+            if let StatIdOrTitle::Stat(stat_id) = s {
+                Some(resolve_label(stat_id, config).chars().count())
+            } else {
+                None
+            }
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+fn pad_label(label: &str, width: usize) -> String {
+    if width == 0 {
+        return label.to_string();
+    }
+    let len = label.chars().count();
+    if len >= width {
+        label.to_string()
+    } else {
+        format!("{}{}", label, " ".repeat(width - len))
+    }
+}
+
 pub fn display_stats(stats: &PacmanStats, config: &Config) {
     let glyph = &config.display.glyph.glyph;
     let parsed_stats = config.display.parsed_stats();
+    let label_width = max_label_width(&parsed_stats, config);
 
     for stat_ref in &parsed_stats {
         match stat_ref {
@@ -313,7 +343,7 @@ pub fn display_stats(stats: &PacmanStats, config: &Config) {
             }
             StatIdOrTitle::Stat(stat_id) => {
                 if let Some(value) = stat_id.format_value(stats) {
-                    let label = resolve_label(stat_id, config);
+                    let label = pad_label(&resolve_label(stat_id, config), label_width);
                     println!("{}{}{}", label, glyph, value);
                 }
             }
@@ -322,6 +352,9 @@ pub fn display_stats(stats: &PacmanStats, config: &Config) {
                 for line in palette_lines {
                     println!("{}", line);
                 }
+            }
+            StatIdOrTitle::Newline => {
+                println!();
             }
         }
     }
@@ -413,6 +446,7 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
     let ascii_color = parse_color(&config.display.ascii_color);
     let glyph = &config.display.glyph.glyph;
     let parsed_stats = config.display.parsed_stats();
+    let label_width = max_label_width(&parsed_stats, config);
 
     // === PASS 1: Calculate content width ===
     let mut content_max_width: usize = 0;
@@ -457,7 +491,7 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                 let value = stat_id
                     .format_value(stats)
                     .unwrap_or_else(|| "-".to_string());
-                let label = resolve_label(stat_id, config);
+                let label = pad_label(&resolve_label(stat_id, config), label_width);
                 let line = format!("{}{}{}", label, glyph, value);
                 content_max_width = content_max_width.max(line.chars().count());
                 stat_lines_raw.push((*stat_id, line));
@@ -469,6 +503,7 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                 );
                 content_max_width = content_max_width.max(row_width);
             }
+            StatIdOrTitle::Newline => {}
         }
     }
 
@@ -508,7 +543,8 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                     stat_idx += 1;
 
                     // Format with colors for display
-                    let formatted = format_stat_with_colors(*raw_stat_id, stats, config, glyph);
+                    let formatted =
+                        format_stat_with_colors(*raw_stat_id, stats, config, glyph, label_width);
                     // Indent stat lines based on content padding
                     if content_padding > 0 {
                         stats_lines.push(format!("{}{}", " ".repeat(content_padding), formatted));
@@ -521,6 +557,9 @@ pub fn display_stats_with_graphics(stats: &PacmanStats, config: &Config) -> io::
                 let palette_lines =
                     render_palette_lines(*variant, &config.display.palette, content_padding);
                 stats_lines.extend(palette_lines);
+            }
+            StatIdOrTitle::Newline => {
+                stats_lines.push(String::new());
             }
         }
     }
@@ -580,8 +619,9 @@ fn format_stat_with_colors(
     stats: &PacmanStats,
     config: &Config,
     glyph: &str,
+    label_pad_width: usize,
 ) -> String {
-    let label = resolve_label(&stat_id, config);
+    let label = pad_label(&resolve_label(&stat_id, config), label_pad_width);
     let colors = &config.display.colors;
     let key = stat_id.config_key();
 

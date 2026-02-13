@@ -1,3 +1,5 @@
+config_version = "1.1.0"
+
 ################### DISPLAY ####################
 [display]
 ## ascii options: "PACMAN_DEFAULT", "PACMAN_SMALL", "NONE", or a file path
@@ -9,7 +11,7 @@ ascii_color = "yellow"
 
 # Available stats: installed, upgradable, last_update, download_size, installed_size,
 # net_upgrade_size, orphaned_packages, cache_size, disk, mirror_url, mirror_health,
-# colors, colors_dark, colors_light
+# colors, colors_dark, colors_light, newline
 stats = [
     "title.header",
     "installed",
@@ -23,12 +25,15 @@ stats = [
     "cache_size",
     "mirror_url",
     "mirror_health",
+    "newline",
     "colors",
 ]
 
 [display.glyph]
 glyph = ": "
 color = "none"
+# Align all stat labels to the same width so the glyph lines up vertically
+align = false
 
 ################### PALETTE ####################
 # Built-in styles: "blocks" (background-colored), "dots" (● foreground), "ghosts" (󰊠 nerd font)

@@ -33,6 +33,7 @@ pub enum StatIdOrTitle {
     NamedTitle(String),
     LegacyTitle,
     ColorPalette(PaletteVariant),
+    Newline,
 }
 
 const BYTES_PER_GIB: f64 = 1073741824.0;
@@ -49,6 +50,10 @@ impl StatId {
 
         if s == "title" {
             return Ok(StatIdOrTitle::LegacyTitle);
+        }
+
+        if s == "newline" {
+            return Ok(StatIdOrTitle::Newline);
         }
 
         match s {
