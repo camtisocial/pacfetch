@@ -33,6 +33,7 @@ Commands:
   -Sy           Sync package databases
   -Su           Upgrade system
   -Syu          Sync databases and upgrade system
+  --yay         Full system + AUR upgrade via yay
 
 Options:
       --ascii <ASCII>  Use custom ASCII art (path, built-in name, or NONE)
@@ -66,6 +67,13 @@ struct Cli {
 
     #[arg(long = "ascii", hide = true)]
     ascii: Option<String>,
+
+    #[arg(long = "yay", hide = true)]
+    yay: bool,
+}
+
+fn is_bare_invocation(cli: &Cli) -> bool {
+    !cli.sync_op && !cli.sync_db && !cli.upgrade && !cli.yay && !cli.local
 }
 
 fn print_error_and_help(msg: &str) -> ! {
@@ -98,9 +106,35 @@ fn main() {
     let mut config = Config::load();
 
     // Override ascii from CLI
-    if let Some(ascii) = cli.ascii {
-        config.display.ascii = ascii;
+    if let Some(ref ascii) = cli.ascii {
+        config.display.ascii = ascii.clone();
     }
+
+    // Apply default_args if no meaningful flags were provided
+    let cli = if is_bare_invocation(&cli) && !config.default_args.is_empty() {
+        let mut args = vec!["pacfetch".to_string()];
+        args.extend(config.default_args.split_whitespace().map(String::from));
+        // Carry forward any explicit flags that were set
+        if cli.debug {
+            args.push("-d".to_string());
+        }
+        if let Some(ref ascii) = cli.ascii {
+            args.push("--ascii".to_string());
+            args.push(ascii.clone());
+        }
+        match Cli::try_parse_from(&args) {
+            Ok(cli) => cli,
+            Err(_) => {
+                eprintln!(
+                    "warning: invalid default_args in config: {:?}",
+                    config.default_args
+                );
+                cli
+            }
+        }
+    } else {
+        cli
+    };
 
     let invalid_flag = (cli.sync_op && !cli.sync_db && !cli.upgrade)
         || ((cli.sync_db || cli.upgrade) && !cli.sync_op);
@@ -112,6 +146,15 @@ fn main() {
     if cli.sync_op && cli.upgrade {
         let sync_first = cli.sync_db;
         if let Err(e) = pacman::upgrade_system(cli.debug, sync_first, &config) {
+            eprintln!("error: {}", e);
+            std::process::exit(1);
+        }
+        std::process::exit(0);
+    }
+
+    // Handle --yay (full system + AUR upgrade via yay)
+    if cli.yay {
+        if let Err(e) = pacman::yay_upgrade(cli.debug, &config) {
             eprintln!("error: {}", e);
             std::process::exit(1);
         }

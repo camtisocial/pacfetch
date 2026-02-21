@@ -6,6 +6,7 @@ use crate::util;
 use alpm::Alpm;
 use chrono::{DateTime, FixedOffset, Local};
 use indicatif::{ProgressBar, ProgressStyle};
+use raur::Raur as _;
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::PathBuf;
@@ -843,6 +844,63 @@ fn run_pacman_pty(args: &[&str], filter: bool) -> Result<(), String> {
     Ok(())
 }
 
+fn get_aur_upgradable_count() -> u32 {
+    let mut handle = match Alpm::new("/", "/var/lib/pacman") {
+        Ok(a) => a,
+        Err(_) => return 0,
+    };
+    let _ = handle.register_syncdb_mut("core", alpm::SigLevel::NONE);
+    let _ = handle.register_syncdb_mut("extra", alpm::SigLevel::NONE);
+    let _ = handle.register_syncdb_mut("multilib", alpm::SigLevel::NONE);
+
+    let mut repo_pkgs: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for db in handle.syncdbs().into_iter() {
+        for pkg in db.pkgs().into_iter() {
+            repo_pkgs.insert(pkg.name().to_string());
+        }
+    }
+
+    let foreign: Vec<(String, String)> = handle
+        .localdb()
+        .pkgs()
+        .into_iter()
+        .filter(|pkg| !repo_pkgs.contains(pkg.name()))
+        .map(|pkg| (pkg.name().to_string(), pkg.version().to_string()))
+        .collect();
+
+    if foreign.is_empty() {
+        return 0;
+    }
+
+    let pkg_names: Vec<&str> = foreign.iter().map(|(n, _)| n.as_str()).collect();
+    let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    else {
+        return 0;
+    };
+    let Ok(aur_pkgs): Result<Vec<raur::Package>, _> =
+        rt.block_on(async { raur::Handle::new().info(&pkg_names).await })
+    else {
+        return 0;
+    };
+
+    let installed: std::collections::HashMap<&str, &str> = foreign
+        .iter()
+        .map(|(n, v)| (n.as_str(), v.as_str()))
+        .collect();
+
+    aur_pkgs
+        .iter()
+        .filter(|p| {
+            installed
+                .get(p.name.as_str())
+                .map(|iv| alpm::vercmp(p.version.as_str(), iv) == std::cmp::Ordering::Greater)
+                .unwrap_or(false)
+        })
+        .count() as u32
+}
+
 fn run_pacman_sync() -> Result<(), String> {
     if !util::is_root() {
         return Err("you cannot perform this operation unless you are root.".to_string());
@@ -918,6 +976,40 @@ fn run_pacman_sync() -> Result<(), String> {
 
 pub fn sync_databases() -> Result<(), String> {
     run_pacman_sync()
+}
+
+pub fn yay_upgrade(debug: bool, config: &crate::config::Config) -> Result<(), String> {
+    if !matches!(Command::new("yay").arg("--version").output(), Ok(o) if o.status.success()) {
+        return Err("yay is not installed.".to_string());
+    }
+
+    // Sync temp databases
+    let spinner = if debug {
+        None
+    } else {
+        Some(util::create_spinner("Gathering stats"))
+    };
+    let stat_ids = config.display.parsed_stats();
+    let mut stats = get_stats(&stat_ids, debug, true, config, spinner.as_ref());
+    let aur_count = get_aur_upgradable_count();
+    if let Some(ref s) = spinner {
+        s.finish_and_clear();
+    }
+
+    stats.total_upgradable += aur_count;
+
+    if debug {
+        crate::ui::display_stats(&stats, config);
+        println!();
+    } else if let Err(e) = crate::ui::display_stats_with_graphics(&stats, config) {
+        eprintln!("error: {}", e);
+        crate::ui::display_stats(&stats, config);
+        println!();
+    }
+
+    //hand off to yay
+    use std::os::unix::process::CommandExt;
+    Err(std::process::Command::new("yay").exec().to_string())
 }
 
 pub fn upgrade_system(
