@@ -34,8 +34,10 @@ pub enum TitleAlign {
     Right,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, Clone)]
 pub struct Config {
+    #[serde(default)]
+    pub default_args: String,
     #[serde(default)]
     pub display: DisplayConfig,
     #[serde(default)]
@@ -44,7 +46,7 @@ pub struct Config {
     pub disk: DiskConfig,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct CacheConfig {
     #[serde(default = "default_ttl")]
     pub ttl_minutes: u32,
@@ -62,7 +64,7 @@ impl Default for CacheConfig {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct DiskConfig {
     #[serde(default = "default_disk_path")]
     pub path: String,
@@ -80,7 +82,7 @@ impl Default for DiskConfig {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct PaletteConfig {
     #[serde(default = "default_palette_style")]
     pub style: String,
@@ -105,7 +107,7 @@ impl Default for PaletteConfig {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct GlyphConfig {
     #[serde(default = "default_glyph")]
     pub glyph: String,
@@ -225,7 +227,7 @@ impl Default for TitleConfig {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct DisplayConfig {
     #[serde(default = "default_stats")]
     pub stats: Vec<String>,

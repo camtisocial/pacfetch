@@ -1,3 +1,8 @@
+# Default CLI arguments when pacfetch is run with no args.
+# Examples: "--yay", "-Syu"
+# Uncomment the line below to set a default:
+# default_args = "--yay"
+
 ################### DISPLAY ####################
 [display]
 ## ascii options: "PACMAN_DEFAULT", "PACMAN_SMALL", "NONE", or a file path
