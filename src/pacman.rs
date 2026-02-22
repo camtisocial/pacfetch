@@ -1012,6 +1012,40 @@ pub fn yay_upgrade(debug: bool, config: &crate::config::Config) -> Result<(), St
     Err(std::process::Command::new("yay").exec().to_string())
 }
 
+pub fn paru_upgrade(debug: bool, config: &crate::config::Config) -> Result<(), String> {
+    if !matches!(Command::new("paru").arg("--version").output(), Ok(o) if o.status.success()) {
+        return Err("paru is not installed.".to_string());
+    }
+
+    // Sync temp databases
+    let spinner = if debug {
+        None
+    } else {
+        Some(util::create_spinner("Gathering stats"))
+    };
+    let stat_ids = config.display.parsed_stats();
+    let mut stats = get_stats(&stat_ids, debug, true, config, spinner.as_ref());
+    let aur_count = get_aur_upgradable_count();
+    if let Some(ref s) = spinner {
+        s.finish_and_clear();
+    }
+
+    stats.total_upgradable += aur_count;
+
+    if debug {
+        crate::ui::display_stats(&stats, config);
+        println!();
+    } else if let Err(e) = crate::ui::display_stats_with_graphics(&stats, config) {
+        eprintln!("error: {}", e);
+        crate::ui::display_stats(&stats, config);
+        println!();
+    }
+
+    //hand off to paru
+    use std::os::unix::process::CommandExt;
+    Err(std::process::Command::new("paru").exec().to_string())
+}
+
 pub fn upgrade_system(
     debug: bool,
     sync_first: bool,
