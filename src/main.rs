@@ -34,6 +34,7 @@ Commands:
   -Su           Upgrade system
   -Syu          Sync databases and upgrade system
   --yay         Full system + AUR upgrade via yay
+  --paru        Full system + AUR upgrade via paru
 
 Options:
       --ascii <ASCII>  Use custom ASCII art (path, built-in name, or NONE)
@@ -70,10 +71,13 @@ struct Cli {
 
     #[arg(long = "yay", hide = true)]
     yay: bool,
+
+    #[arg(long = "paru", hide = true)]
+    paru: bool,
 }
 
 fn is_bare_invocation(cli: &Cli) -> bool {
-    !cli.sync_op && !cli.sync_db && !cli.upgrade && !cli.yay && !cli.local
+    !cli.sync_op && !cli.sync_db && !cli.upgrade && !cli.yay && !cli.paru && !cli.local
 }
 
 fn print_error_and_help(msg: &str) -> ! {
@@ -155,6 +159,15 @@ fn main() {
     // Handle --yay (full system + AUR upgrade via yay)
     if cli.yay {
         if let Err(e) = pacman::yay_upgrade(cli.debug, &config) {
+            eprintln!("error: {}", e);
+            std::process::exit(1);
+        }
+        std::process::exit(0);
+    }
+
+    // Handle --paru (full system + AUR upgrade via paru)
+    if cli.paru {
+        if let Err(e) = pacman::paru_upgrade(cli.debug, &config) {
             eprintln!("error: {}", e);
             std::process::exit(1);
         }
