@@ -20,6 +20,20 @@ pub enum StatId {
     Disk,
 }
 
+pub const ALL_STAT_IDS: &[StatId] = &[
+    StatId::Installed,
+    StatId::Upgradable,
+    StatId::LastUpdate,
+    StatId::DownloadSize,
+    StatId::InstalledSize,
+    StatId::NetUpgradeSize,
+    StatId::OrphanedPackages,
+    StatId::CacheSize,
+    StatId::MirrorUrl,
+    StatId::MirrorHealth,
+    StatId::Disk,
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PaletteVariant {
     Both,
