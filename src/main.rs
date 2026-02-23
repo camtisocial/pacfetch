@@ -38,6 +38,9 @@ Commands:
 
 Options:
       --ascii <ASCII>  Use custom ASCII art (path, built-in name, or NONE)
+      --color <COLOR>  Override ASCII art color (name, hex #RRGGBB, or none)
+      --image <PATH>   Use an image instead of ASCII art
+      --json           Output stats as JSON
       --local          Use local cached database (skip temp sync)
   -d, --debug          Debug mode
   -h, --help           Print help
@@ -68,6 +71,15 @@ struct Cli {
 
     #[arg(long = "ascii", hide = true)]
     ascii: Option<String>,
+
+    #[arg(long = "color", hide = true)]
+    color: Option<String>,
+
+    #[arg(long = "image", hide = true)]
+    image: Option<String>,
+
+    #[arg(long = "json", hide = true)]
+    json: bool,
 
     #[arg(long = "yay", hide = true)]
     yay: bool,
@@ -109,22 +121,38 @@ fn main() {
     // Load config
     let mut config = Config::load();
 
-    // Override ascii from CLI
     if let Some(ref ascii) = cli.ascii {
         config.display.ascii = ascii.clone();
     }
 
-    // Apply default_args if no meaningful flags were provided
+    if let Some(ref color) = cli.color {
+        config.display.ascii_color = color.clone();
+    }
+
+    if let Some(ref image) = cli.image {
+        config.display.image = image.clone();
+    }
+
     let cli = if is_bare_invocation(&cli) && !config.default_args.is_empty() {
         let mut args = vec!["pacfetch".to_string()];
         args.extend(config.default_args.split_whitespace().map(String::from));
-        // Carry forward any explicit flags that were set
         if cli.debug {
             args.push("-d".to_string());
         }
         if let Some(ref ascii) = cli.ascii {
             args.push("--ascii".to_string());
             args.push(ascii.clone());
+        }
+        if let Some(ref color) = cli.color {
+            args.push("--color".to_string());
+            args.push(color.clone());
+        }
+        if let Some(ref image) = cli.image {
+            args.push("--image".to_string());
+            args.push(image.clone());
+        }
+        if cli.json {
+            args.push("--json".to_string());
         }
         match Cli::try_parse_from(&args) {
             Ok(cli) => cli,
@@ -193,6 +221,14 @@ fn main() {
         );
         spinner.finish_and_clear();
         stats
+    } else if cli.json {
+        pacman::get_stats(
+            &config.display.parsed_stats(),
+            false,
+            fresh_sync,
+            &config,
+            None,
+        )
     } else if cli.debug {
         println!();
         pacman::get_stats(
@@ -215,10 +251,57 @@ fn main() {
         stats
     };
 
-    if cli.debug {
+    if cli.json {
+        println!("{}", stats_to_json_string(&stats));
+    } else if cli.debug {
         ui::display_stats(&stats, &config);
         println!();
     } else if let Err(e) = ui::display_stats_with_graphics(&stats, &config) {
         eprintln!("error: {}", e);
+    }
+}
+
+fn stats_to_json_string(stats: &pacman::PacmanStats) -> String {
+    let mut map = serde_json::Map::new();
+    for id in stats::ALL_STAT_IDS {
+        if let Some(value) = id.format_value(stats) {
+            map.insert(
+                id.config_key().to_string(),
+                serde_json::Value::String(value),
+            );
+        }
+    }
+    serde_json::to_string_pretty(&serde_json::Value::Object(map))
+        .unwrap_or_else(|_| "{}".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pacman::PacmanStats;
+
+    #[test]
+    fn test_json_contains_installed_and_upgradable() {
+        let stats = PacmanStats {
+            total_installed: 1234,
+            total_upgradable: 5,
+            ..Default::default()
+        };
+        let output = stats_to_json_string(&stats);
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["installed"], "1234");
+        assert_eq!(parsed["upgradable"], "5");
+    }
+
+    #[test]
+    fn test_json_omits_none_values() {
+        let stats = PacmanStats {
+            total_installed: 100,
+            total_upgradable: 0,
+            ..Default::default()
+        };
+        let output = stats_to_json_string(&stats);
+        let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert!(parsed.get("download_size").is_none());
     }
 }
