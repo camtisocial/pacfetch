@@ -50,7 +50,9 @@
 
 #### AUR
 ```
-yay -S pacfetch
+yay -S pacfetch      # build from source
+yay -S pacfetch-bin  # or prebuilt binary
+
 ```
 
 #### Cargo
@@ -77,11 +79,16 @@ Run `pacfetch -Syu` to sync and upgrade, or just `pacfetch` to see stats synced 
 
   | Flag | Description |
   |------|-------------|
-  | `no args` | Show stats with sync to temp databases|
-  | `-Syu` | Sync databases, display stats, then upgrade 
+  | `no args` | Show stats with sync to temp databases |
+  | `-Syu` | Sync databases, display stats, then upgrade |
   | `-Sy` | Sync package databases, then display stats |
   | `-Su` | Display stats, then upgrade packages |
+  | `--yay` | Full system + AUR upgrade via yay |
+  | `--paru` | Full system + AUR upgrade via paru |
   | `--ascii <PATH>` | Custom ASCII art file, built-in name, or `NONE` to disable |
+  | `--color <COLOR>` | Override ASCII art color (name, hex `#RRGGBB`, or `none`) |
+  | `--image <PATH>` | Use an image instead of ASCII art |
+  | `--json` | Output stats as JSON |
   | `--local` | Use local cached database |
   | `-d, --debug` | Show verbose output and execution times per function |
   | `-h, --help` | Print help |
@@ -98,28 +105,6 @@ Run `pacfetch -Syu` to sync and upgrade, or just `pacfetch` to see stats synced 
   <br>
   <br>
 
-## Roadmap
-
-**AUR helper integration**  
->`yay` · `paru`
-
-**More options, more stats**  
-> `-Si` · `--image` · `--json` · `--aur` · `--news` · `--color` 
-
-**Display customization overhaul**  
->~`colors`~ · ~`glyphs`~ · ~`more underlining options`~ · ~`true color support`~ · ~`spinners/progress bars`~ · ~`stat aliases`~ 
-
-~**Image rendering support**~ 
->~`kitty`~ · ~`sixel`~ · ~`iterm`~
-
-**Distro and terminal compatibility testing** 
-> `Manjaro` · `Endeavor`
-> 
-> ~`kitty`~ · ~`alacritty`~ · ~`konsole`~ · ~`gnome`~ · ~`ghostty`~
-
-  <br>
-  <br>
-  
 ## Demo
 <p align="center">
   <img src="docs/assets/demo.gif" alt="Full demo" width="920" height="500" />
