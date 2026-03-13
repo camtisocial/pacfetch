@@ -52,7 +52,6 @@
 ```
 yay -S pacfetch      # build from source
 yay -S pacfetch-bin  # or prebuilt binary
-
 ```
 
 #### Cargo
@@ -270,6 +269,8 @@ Run `pacfetch -Syu` to sync and upgrade, or just `pacfetch` to see stats synced 
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) 
+
+Thank you to @dominiquini for packaging the binary version of pacfetch
 
 
   <br>
